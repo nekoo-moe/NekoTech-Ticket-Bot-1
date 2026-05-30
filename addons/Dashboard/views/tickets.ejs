@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket History</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --accent-color: <%= accentColorHex %>;
+      --accent-color-rgb: <%= accentColorRgb %>;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, rgba(var(--accent-color-rgb), 0.2) 0%, rgba(var(--accent-color-rgb), 0.15) 50%, rgba(var(--accent-color-rgb), 0.1) 100%), #0f0f13;
+      color: #9ca3af;
+    }
+
+    .section {
+      flex: 1;
+    }
+
+    .welcome-section {
+      padding: 1rem 1.5rem;
+    }
+
+    .welcome-title {
+      color: #ffffff;
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tickets-container {
+      background-color: #161219;
+      border-radius: 15px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .ticket-item {
+  background-color: rgba(22, 18, 25, 0.5);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.ticket-item:hover {
+  background-color: rgba(var(--accent-color-rgb), 0.1);
+  border-color: rgba(var(--accent-color-rgb), 0.2);
+}
+
+    .ticket-content {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .ticket-main-info {
+  flex: 1;
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.user-name {
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 180px;
+}
+
+    .info-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .info-label {
+      color: #9ca3af;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .info-value {
+      color: #ffffff;
+      font-weight: 500;
+    }
+
+.ticket-id {
+  min-width: 100px;
+  padding: 0.5rem 0.75rem;
+  background: rgba(var(--accent-color-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+  border-radius: 6px;
+  color: var(--accent-color);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.ticket-details {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(47, 49, 54, 0.3);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.detail-item.created {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.detail-item.created i {
+  color: #22c55e;
+}
+
+.detail-item.closed {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.detail-item.closed i {
+  color: #ef4444;
+}
+
+.view-transcript {
+  background: rgba(var(--accent-color-rgb), 0.1);
+  color: var(--accent-color);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.view-transcript:hover {
+  color: var(--accent-color);
+  background: rgba(var(--accent-color-rgb), 0.2);
+  transform: translateY(-1px);
+}
+
+.messages-badge {
+  background: rgba(var(--accent-color-rgb), 0.15);
+  color: var(--accent-color);
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+    .pagination-wrapper {
+      margin-top: 2rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .pagination-link {
+      background-color: rgba(22, 18, 25, 0.8);
+      border-color: rgba(var(--accent-color-rgb), 0.2);
+      color: #9ca3af;
+    }
+
+    .pagination-link:hover {
+      border-color: var(--accent-color);
+      color: #ffffff;
+    }
+
+    .pagination-link.is-current {
+      background-color: var(--accent-color);
+      border-color: var(--accent-color);
+    }
+
+    .ticket-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.75rem;
+}
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid rgba(var(--accent-color-rgb), 0.3);
+}
+
+@media screen and (max-width: 1024px) {
+  .ticket-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .ticket-main-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .ticket-details {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .ticket-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+.search-section {
+  margin-top: 1rem;
+  padding: 0 1.5rem;
+}
+
+.search-container {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  max-width: 800px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  background: rgba(22, 18, 25, 0.8);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  background: rgba(22, 18, 25, 0.9);
+  box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb), 0.1);
+}
+
+.search-input::placeholder {
+  color: #6b7280;
+}
+
+.search-button {
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.search-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.clear-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.clear-search:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+@media screen and (max-width: 640px) {
+  .search-container {
+    flex-direction: column;
+  }
+
+  .search-button,
+  .clear-search {
+    width: 100%;
+    justify-content: center;
+  }
+}
+  </style>
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh; margin: 0;">
+  <%- include('partials/header', { user: user }) %>
+
+  <section class="section pt-4">
+    <div class="container">
+      <div class="welcome-section">
+        <h1 class="welcome-title">
+          Ticket History
+          <span class="ticket-count">
+            Total: <%= totalTickets %> tickets
+          </span>
+        </h1>
+        <p class="welcome-subtitle">View transcripts and information about closed tickets.</p>
+      </div>
+
+      <div class="search-section">
+        <form action="/tickets" method="GET" class="search-form">
+          <div class="search-container">
+            <div class="search-input-wrapper">
+              <i class="fas fa-search search-icon"></i>
+              <input 
+                type="text" 
+                name="search" 
+                class="search-input" 
+                placeholder="Search by ticket ID or Discord user ID..."
+                value="<%= searchQuery || '' %>"
+              >
+            </div>
+            <button type="submit" class="search-button">
+              Search
+            </button>
+            <% if (searchQuery) { %>
+              <a href="/tickets" class="clear-search">
+                <i class="fas fa-times"></i>
+                Clear
+              </a>
+            <% } %>
+          </div>
+        </form>
+      </div>
+
+      <div class="tickets-container">
+        <% if (tickets.length > 0) { %>
+            <% tickets.forEach(ticket => { %>
+                <div class="ticket-item">
+                  <div class="ticket-id">#<%= ticket.identifier %></div>
+                  
+                  <div class="ticket-main-info">
+                    <div class="user-info">
+                      <img 
+                        src="<%= ticket.avatar || 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Faenza-avatar-default-symbolic.svg/2048px-Faenza-avatar-default-symbolic.svg.png' %>" 
+                        alt="<%= ticket.username %>" 
+                        class="user-avatar"
+                      >
+                      <span class="user-name"><%= ticket.username %></span>
+                    </div>
+                  
+                    <div class="ticket-details">
+                        <div class="detail-item">
+                          <i class="fas fa-folder"></i>
+                          <%= ticket.ticketType %>
+                        </div>
+                        
+                        <div class="detail-item created">
+                          <i class="fas fa-clock"></i>
+                          Created <%= ticket.createdAtFormatted %>
+                        </div>
+                        
+                        <div class="detail-item closed">
+                          <i class="fas fa-lock"></i>
+                          Closed <%= ticket.closedAtFormatted %>
+                        </div>
+                      </div>
+                  </div>
+                  
+                  <div class="ticket-actions">
+                    <div class="messages-badge">
+                      <i class="fas fa-comments"></i>
+                      <%= ticket.totalMessages %> Messages
+                    </div>
+                    <% if (ticket.transcriptID) { %>
+                      <a href="/transcript?channelId=<%= ticket.channelID %>&dateNow=<%= ticket.transcriptID %>" class="view-transcript">
+                        <i class="fas fa-file-alt"></i>
+                        View Transcript
+                      </a>
+                    <% } else { %>
+                      <div class="view-transcript is-disabled" style="cursor: not-allowed; opacity: 0.6;">
+                        <i class="fas fa-file-alt"></i>
+                        No Transcript Found
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+
+          <div class="pagination-wrapper">
+            <nav class="pagination is-centered" role="navigation" aria-label="pagination">
+              <ul class="pagination-list">
+                <% if (currentPage > 1) { %>
+                  <li>
+                    <a href="/tickets?page=1<%= searchQuery ? `&search=${searchQuery}` : '' %>" class="pagination-link" aria-label="First page">
+                      <i class="fas fa-angle-double-left"></i>
+                    </a>
+                  </li>
+                <% } %>
+          
+                <% 
+                  const delta = 2;
+                  const range = [];
+                  for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+                    range.push(i);
+                  }
+          
+                  if (currentPage - delta > 2) {
+                    range.unshift("...");
+                  }
+                  if (currentPage + delta < totalPages - 1) {
+                    range.push("...");
+                  }
+          
+                  range.unshift(1);
+                  if (totalPages > 1) {
+                    range.push(totalPages);
+                  }
+                %>
+          
+                <% range.forEach(i => { %>
+                  <% if (i === "...") { %>
+                    <li><span class="pagination-ellipsis">&hellip;</span></li>
+                  <% } else { %>
+                    <li>
+                      <a href="/tickets?page=<%= i %><%= searchQuery ? `&search=${searchQuery}` : '' %>" 
+                         class="pagination-link <%= i === currentPage ? 'is-current' : '' %>"
+                         aria-label="Page <%= i %>"
+                         aria-current="<%= i === currentPage ? 'page' : false %>">
+                        <%= i %>
+                      </a>
+                    </li>
+                  <% } %>
+                <% }); %>
+              </ul>
+            </nav>
+          </div>
+        <% } else { %>
+          <div class="has-text-centered py-6">
+            <p class="has-text-grey">No closed tickets found.</p>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

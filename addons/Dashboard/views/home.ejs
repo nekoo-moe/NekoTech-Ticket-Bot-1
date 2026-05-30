@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --accent-color: <%= accentColorHex %>;
+      --accent-color-rgb: <%= accentColorRgb %>;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, rgba(var(--accent-color-rgb), 0.2) 0%, rgba(var(--accent-color-rgb), 0.15) 50%, rgba(var(--accent-color-rgb), 0.1) 100%), #0f0f13;
+      color: #9ca3af;
+    }
+
+    .section {
+      flex: 1;
+    }
+
+    .navbar {
+      background-color: rgba(15, 15, 19, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .welcome-title {
+      color: #ffffff;
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .welcome-subtitle {
+      color: #9ca3af;
+      font-size: 1.1rem;
+    }
+    .welcome-section {
+      padding: 1rem 1.5rem;
+    }
+
+    .stats-card {
+      background-color: #161219;
+      border-radius: 15px;
+      padding: 1.5rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .stats-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 24px rgba(var(--accent-color-rgb), 0.2);
+    }
+
+    .stats-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(var(--accent-color-rgb), 0.5), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .stats-card:hover::before {
+      opacity: 1;
+    }
+
+    .icon-container {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background-color: rgba(var(--accent-color-rgb), 0.2);
+      color: var(--accent-color);
+      margin-right: 1rem;
+      position: relative;
+    }
+
+    .icon-container::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 14px;
+      background: linear-gradient(45deg, transparent, rgba(var(--accent-color-rgb), 0.6));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .stats-card:hover .icon-container::after {
+      opacity: 1;
+    }
+
+    .icon-container i {
+      font-size: 1.25rem;
+      z-index: 1;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: bold;
+      color: #ffffff;
+      margin-top: 0.5rem;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-bottom: 0.25rem;
+    }
+
+    .tickets-container {
+      background-color: #161219;
+      border-radius: 15px;
+      padding: 1.5rem;
+      margin-top: 2rem;
+      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .ticket-item {
+      background-color: rgba(22, 18, 25, 0.5);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      transition: transform 0.2s, background-color 0.2s;
+      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .ticket-item:hover {
+      transform: translateX(5px);
+      background-color: rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .ticket-id {
+      font-weight: bold;
+      color: #ffffff;
+    }
+
+    .ticket-meta {
+      color: #9ca3af;
+      font-size: 0.9rem;
+    }
+
+    .status-tag {
+      border-radius: 20px;
+      padding: 0.25rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .status-tag.is-open {
+      background-color: rgba(var(--accent-color-rgb), 0.2);
+      color: var(--accent-color);
+    }
+
+    .status-tag.is-closed {
+      background-color: rgba(255, 56, 96, 0.2);
+      color: #ff3860;
+    }
+
+    .star-rating {
+      color: #FFD700;
+    }
+
+    .welcome-title {
+      color: #ffffff;
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .welcome-subtitle {
+      color: #9ca3af;
+      font-size: 1.1rem;
+    }
+    .welcome-section {
+      padding: 1rem 1.5rem;
+    }
+
+    .stats-card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stats-card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .star-rating-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .total-reviews {
+      color: #9ca3af;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+
+    .ticket-id-badge {
+      background-color: rgba(var(--accent-color-rgb), 0.2);
+      color: var(--accent-color);
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+
+    .ticket-item-content {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ticket-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .ticket-meta-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    @media screen and (max-width: 768px) {
+      .ticket-item-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .ticket-meta-group {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+  </style>
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh; margin: 0;">
+  <%- include('partials/header', { user: user }) %>
+
+  <section class="section pt-4">
+    <div class="container">
+      <div class="welcome-section">
+        <h1 class="welcome-title">Welcome back, <span><%= user.username %></span></h1>
+        <p class="welcome-subtitle">Manage tickets, track recent activity, and view detailed all in one place.</p>
+      </div>
+
+      <div class="columns is-multiline">
+        <div class="column is-3">
+          <div class="stats-card">
+            <div class="stats-card-content">
+              <div class="is-flex is-align-items-center">
+                <div class="icon-container">
+                  <i class="fas fa-ticket-alt"></i>
+                </div>
+                <div>
+                  <div class="stat-label">Total Tickets</div>
+                  <div class="stat-value"><%= guildStats.totalTickets.toLocaleString('en-US') %></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="column is-3">
+          <div class="stats-card">
+            <div class="stats-card-content">
+              <div class="is-flex is-align-items-center">
+                <div class="icon-container">
+                  <i class="fas fa-envelope"></i>
+                </div>
+                <div>
+                  <div class="stat-label">Total Messages</div>
+                  <div class="stat-value"><%= guildStats.totalMessages.toLocaleString('en-US') %></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="column is-3">
+          <div class="stats-card">
+            <div class="stats-card-content">
+              <div class="is-flex is-align-items-center">
+                <div class="icon-container">
+                  <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                  <div class="stat-label">Avg Response Time</div>
+                  <div class="stat-value"><%= guildStats.averageResponse %></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="column is-3">
+          <div class="stats-card">
+            <div class="stats-card-content">
+              <div class="is-flex is-align-items-center">
+                <div class="icon-container">
+                  <i class="fas fa-star"></i>
+                </div>
+                <div class="star-rating-container">
+                  <div class="stat-label">Avg Rating</div>
+                  <div class="star-rating">
+                    <% for (let i = 0; i < Math.floor(guildStats.averageRating); i++) { %>
+                      <i class="fas fa-star"></i>
+                    <% } %>
+                    <% if (guildStats.averageRating % 1 !== 0) { %>
+                      <i class="fas fa-star-half-alt"></i>
+                    <% } %>
+                    <% for (let i = Math.ceil(guildStats.averageRating); i < 5; i++) { %>
+                      <i class="far fa-star"></i>
+                    <% } %>
+                  </div>
+                  <div class="total-reviews">Total Reviews: <%= guildStats.totalReviews || 0 %></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tickets-container">
+        <div class="is-flex is-align-items-center mb-4">
+          <div class="icon-container">
+            <i class="fas fa-ticket-alt"></i>
+          </div>
+          <h2 class="title is-4 has-text-white mb-0">Recent Tickets</h2>
+        </div>
+
+        <% if (recentTickets.length > 0) { %>
+          <% recentTickets.forEach(ticket => { %>
+            <div class="ticket-item">
+              <div class="ticket-item-content">
+                <div class="ticket-info">
+                  <span class="ticket-id-badge">#<%= ticket.identifier %></span>
+                  <span class="ticket-meta"><%= ticket.username %></span>
+                </div>
+                <div class="ticket-meta-group">
+                  <span class="ticket-meta">
+                    <i class="fas fa-message mr-2"></i>
+                    <%= ticket.messages %>
+                  </span>
+                  <span class="ticket-meta">
+                    <%= new Date(ticket.ticketCreationDate).toLocaleDateString('en-US', { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    }) %>
+                  </span>
+                  <span class="status-tag <%= ticket.status === 'Open' ? 'is-open' : 'is-closed' %>">
+                    <%= ticket.status %>
+                  </span>
+                </div>
+              </div>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <div class="has-text-centered py-6">
+            <p class="has-text-grey">No recent tickets available</p>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

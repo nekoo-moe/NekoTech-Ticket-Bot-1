@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Statistics</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --accent-color: <%= accentColorHex %>;
+      --accent-color-rgb: <%= accentColorRgb %>;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, rgba(var(--accent-color-rgb), 0.2) 0%, rgba(var(--accent-color-rgb), 0.15) 50%, rgba(var(--accent-color-rgb), 0.1) 100%), #0f0f13;
+      color: #9ca3af;
+    }
+
+    .welcome-title {
+      color: #ffffff;
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .welcome-subtitle {
+      color: #9ca3af;
+      font-size: 1.1rem;
+    }
+    .welcome-section {
+      padding: 1rem 1.5rem;
+    }
+
+    .stats-category {
+      background-color: #161219;
+      border-radius: 15px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .category-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(var(--accent-color-rgb), 0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-color);
+      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.3);
+    }
+
+    .category-title {
+      color: #ffffff;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .stat-card {
+      background: rgba(22, 18, 25, 0.5);
+      border-radius: 12px;
+      padding: 1.25rem;
+      height: 100%;
+      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+      transition: transform 0.2s, background-color 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      background: rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(var(--accent-color-rgb), 0.2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-color);
+      margin-bottom: 1rem;
+      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.3);
+    }
+
+    .stat-icon i {
+      font-size: 1.25rem;
+    }
+
+    .stat-label {
+      color: #9ca3af;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      color: #ffffff;
+      font-size: 1.75rem;
+      font-weight: bold;
+    }
+
+    .rating-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .star-rating {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .star-rating i {
+      font-size: 1.5rem;
+      color: #FFD700;
+    }
+
+    .rating-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .rating-value {
+      color: #ffffff;
+      font-size: 1.25rem;
+      font-weight: bold;
+    }
+
+    .rating-count {
+      color: #9ca3af;
+      font-size: 0.9rem;
+    }
+
+    @media screen and (max-width: 768px) {
+      .stat-card {
+        margin-bottom: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/header', { user: user }) %>
+
+  <section class="section pt-4" style="min-height: calc(100vh - 180px);">
+    <div class="container">
+      <div class="welcome-section">
+        <h1 class="welcome-title">
+          Statistics Overview
+        </h1>
+        <p class="welcome-subtitle">Comprehensive insights into server activity, ticket performance, and more.</p>
+      </div>
+
+      <div class="stats-category">
+        <div class="category-header">
+          <div class="category-icon">
+            <i class="fas fa-ticket-alt"></i>
+          </div>
+          <h2 class="category-title">Ticket Statistics</h2>
+        </div>
+        
+        <div class="columns is-multiline">
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-ticket-alt"></i>
+              </div>
+              <div class="stat-label">Total Tickets</div>
+              <div class="stat-value"><%= guildStats.totalTickets.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-door-open"></i>
+              </div>
+              <div class="stat-label">Open Tickets</div>
+              <div class="stat-value"><%= guildStats.openTickets.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-user-check"></i>
+              </div>
+              <div class="stat-label">Total Claims</div>
+              <div class="stat-value"><%= guildStats.totalClaims.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-envelope"></i>
+              </div>
+              <div class="stat-label">Total Messages</div>
+              <div class="stat-value"><%= guildStats.totalMessages.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-clock"></i>
+              </div>
+              <div class="stat-label">Avg. Completion Time</div>
+              <div class="stat-value"><%= guildStats.averageCompletion %></div>
+            </div>
+          </div>
+          
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-reply"></i>
+              </div>
+              <div class="stat-label">Avg. Response Time</div>
+              <div class="stat-value"><%= guildStats.averageResponse %></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-category">
+        <div class="category-header">
+          <div class="category-icon">
+            <i class="fas fa-star"></i>
+          </div>
+          <h2 class="category-title">Review Statistics</h2>
+        </div>
+        
+        <div class="columns is-multiline">
+          <div class="column is-4">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-comment-alt"></i>
+              </div>
+              <div class="stat-label">Total Reviews</div>
+              <div class="stat-value"><%= guildStats.totalReviews.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-4">
+            <div class="stat-card">
+              <div class="rating-card">
+                <div class="stat-icon">
+                  <i class="fas fa-star"></i>
+                </div>
+                <div class="rating-details">
+                  <div class="stat-label">Average Rating</div>
+                  <div class="star-rating">
+                    <% for (let i = 0; i < Math.floor(guildStats.averageRating); i++) { %>
+                      <i class="fas fa-star"></i>
+                    <% } %>
+                    <% if (guildStats.averageRating % 1 !== 0) { %>
+                      <i class="fas fa-star-half-alt"></i>
+                    <% } %>
+                    <% for (let i = Math.ceil(guildStats.averageRating); i < 5; i++) { %>
+                      <i class="far fa-star"></i>
+                    <% } %>
+                  </div>
+                  <div class="rating-count"><%= guildStats.averageRating.toFixed(1) %> out of 5</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-category">
+        <div class="category-header">
+          <div class="category-icon">
+            <i class="fas fa-lightbulb"></i>
+          </div>
+          <h2 class="category-title">Suggestion Statistics</h2>
+        </div>
+        
+        <div class="columns is-multiline">
+          <div class="column is-4">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-lightbulb"></i>
+              </div>
+              <div class="stat-label">Total Suggestions</div>
+              <div class="stat-value"><%= guildStats.totalSuggestions.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-4">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-thumbs-up"></i>
+              </div>
+              <div class="stat-label">Total Upvotes</div>
+              <div class="stat-value"><%= guildStats.totalSuggestionUpvotes.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-4">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-thumbs-down"></i>
+              </div>
+              <div class="stat-label">Total Downvotes</div>
+              <div class="stat-value"><%= guildStats.totalSuggestionDownvotes.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-category">
+        <div class="category-header">
+          <div class="category-icon">
+            <i class="fas fa-server"></i>
+          </div>
+          <h2 class="category-title">Server Statistics</h2>
+        </div>
+        
+        <div class="columns is-multiline">
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-users"></i>
+              </div>
+              <div class="stat-label">Member Count</div>
+              <div class="stat-value"><%= guild.memberCount.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-sitemap"></i>
+              </div>
+              <div class="stat-label">Total Channels</div>
+              <div class="stat-value"><%= guild.channels.cache.size.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-id-badge"></i>
+              </div>
+              <div class="stat-label">Total Roles</div>
+              <div class="stat-value"><%= guild.roles.cache.size.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+          
+          <div class="column is-3">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <i class="fas fa-ban"></i>
+              </div>
+              <div class="stat-label">Total Bans</div>
+              <div class="stat-value"><%= guild.bans.cache.size.toLocaleString('en-US') %></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

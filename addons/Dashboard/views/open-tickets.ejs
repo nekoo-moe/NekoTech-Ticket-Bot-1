@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Tickets</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --accent-color: <%= accentColorHex %>;
+      --accent-color-rgb: <%= accentColorRgb %>;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, rgba(var(--accent-color-rgb), 0.2) 0%, rgba(var(--accent-color-rgb), 0.15) 50%, rgba(var(--accent-color-rgb), 0.1) 100%), #0f0f13;
+      color: #9ca3af;
+    }
+
+    .section {
+      flex: 1;
+    }
+
+
+    .welcome-section {
+      padding: 1rem 1.5rem;
+    }
+
+    .welcome-title {
+      color: #ffffff;
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .welcome-subtitle {
+      color: #9ca3af;
+      font-size: 1.1rem;
+    }
+
+    .category-container {
+      background-color: #161219;
+      border-radius: 15px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .category-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(var(--accent-color-rgb), 0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-color);
+      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.3);
+    }
+
+    .category-title {
+      color: #ffffff;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .ticket-item {
+      background-color: rgba(22, 18, 25, 0.5);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      transition: transform 0.2s, background-color 0.2s;
+      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .ticket-item:hover {
+      transform: translateX(5px);
+      background-color: rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .ticket-content {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .ticket-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      border: 2px solid rgba(var(--accent-color-rgb), 0.3);
+    }
+
+    .ticket-info {
+      flex: 1;
+    }
+
+    .ticket-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .ticket-id {
+      background: rgba(var(--accent-color-rgb), 0.2);
+      color: var(--accent-color);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+
+    .ticket-username {
+      color: #9ca3af;
+      font-size: 0.95rem;
+    }
+
+    .ticket-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .meta-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      background: rgba(22, 18, 25, 0.8);
+      border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+    }
+
+    .meta-tag i {
+      font-size: 0.9rem;
+    }
+
+    .meta-tag.priority-high {
+      background: rgba(255, 56, 96, 0.1);
+      color: #ff3860;
+      border-color: rgba(255, 56, 96, 0.2);
+    }
+
+    .meta-tag.priority-normal {
+      background: rgba(var(--accent-color-rgb), 0.1);
+      color: var(--accent-color);
+      border-color: rgba(var(--accent-color-rgb), 0.2);
+    }
+
+    .meta-tag.waiting-staff {
+      background: rgba(255, 221, 87, 0.1);
+      color: #ffd700;
+      border-color: rgba(255, 221, 87, 0.2);
+    }
+
+    .meta-tag.waiting-user {
+      background: rgba(72, 199, 142, 0.1);
+      color: #48c78e;
+      border-color: rgba(72, 199, 142, 0.2);
+    }
+
+    .meta-tag.date {
+      color: #9ca3af;
+    }
+
+    .ticket-actions {
+      margin-left: auto;
+    }
+
+    .view-button {
+      background: rgba(var(--accent-color-rgb), 0.1);
+      color: var(--accent-color);
+      border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .view-button:hover {
+      background: rgba(var(--accent-color-rgb), 0.2);
+      color: var(--accent-color);
+      transform: translateY(-2px);
+    }
+
+    @media screen and (max-width: 768px) {
+      .ticket-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+
+      .ticket-meta {
+        margin-top: 0.5rem;
+      }
+
+      .ticket-actions {
+        margin-left: 0;
+        margin-top: 1rem;
+        width: 100%;
+      }
+
+      .view-button {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh; margin: 0;">
+  <%- include('partials/header', { user: user }) %>
+
+  <section class="section pt-4">
+    <div class="container">
+      <div class="welcome-section">
+        <h1 class="welcome-title">
+          Open Tickets (<%= openTicketsTotal %>)
+        </h1>
+        <p class="welcome-subtitle">View and manage all open tickets below, grouped by category.</p>
+      </div>
+
+      <% if (Object.keys(categorizedTickets).length > 0) { %>
+        <% Object.keys(categorizedTickets).forEach(ticketType => { %>
+          <div class="category-container">
+            <div class="category-header">
+              <div class="category-icon">
+                <i class="fas fa-folder"></i>
+              </div>
+              <h2 class="category-title"><%= ticketType %></h2>
+            </div>
+
+            <div class="ticket-list">
+              <% categorizedTickets[ticketType].forEach(ticket => { %>
+                <div class="ticket-item">
+                  <div class="ticket-content">
+                    <img 
+                      src="<%= ticket.avatar || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png' %>" 
+                      alt="User Avatar" 
+                      class="ticket-avatar"
+                    >
+                    <div class="ticket-info">
+                      <div class="ticket-header">
+                        <span class="ticket-id">#<%= ticket.identifier %></span>
+                        <span class="ticket-username"><%= ticket.username || 'Unknown' %></span>
+                      </div>
+                      <div class="ticket-meta">
+                        <span class="meta-tag <%= ticket.priority === 'High' ? 'priority-high' : 'priority-normal' %>">
+                          <i class="fas fa-flag"></i>
+                          <%= ticket.priority || 'Normal' %>
+                        </span>
+
+                        <span class="meta-tag">
+                          <i class="fas fa-comments"></i>
+                          <%= ticket.messages || 0 %> Messages
+                        </span>
+
+                        <span class="meta-tag <%= ticket.waitingReplyFrom === 'staff' ? 'waiting-staff' : 'waiting-user' %>">
+                          <i class="fas <%= ticket.waitingReplyFrom === 'staff' ? 'fa-user-shield' : 'fa-user' %>"></i>
+                          <%= ticket.waitingReplyFrom === 'staff' ? 'Awaiting Staff' : 'Awaiting User' %>
+                        </span>
+
+                        <span class="meta-tag date">
+                          <i class="fas fa-calendar-alt"></i>
+                          <%= new Date(ticket.createdAt).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: '2-digit' 
+                          }) %>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="ticket-actions">
+                      <a href="/open-tickets/<%= ticket.identifier %>" class="view-button">
+                        <i class="fas fa-external-link-alt"></i> View
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <div class="category-container has-text-centered py-6">
+          <p class="has-text-grey">No open tickets found.</p>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

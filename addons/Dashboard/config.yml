@@ -1,0 +1,54 @@
+# ===========================================================================
+# Plex Tickets Dashboard Configuration
+# If you find any issues, need support, or have a suggestion for the dashboard, please join our support server and create a ticket, 
+# Discord: https://discord.gg/plexdev
+# Documentation: https://docs.plexdevelopment.net
+# ===========================================================================
+DashboardLogs: true # Enable dashboards logs in the terminal? user logins, actions, etc..
+
+# ===========================================================================
+# DISCORD OAUTH2
+# You must not leave them as blank!
+# ===========================================================================
+# Discord OAuth2 credentials, get these from the Discord Developer Portal: https://discord.com/developers/applications
+# Note: MAKE SURE TO REPLACE LOCALHOST:3000 WITH THE DOMAIN OR IP YOU ACCESS THE WEB DASHBOARD WITH!
+clientID: "CLIENT_ID"
+clientSecret: "CLIENT_SECRET"
+callbackURL: "http://localhost:3000/auth/discord/callback" # Create a Redirect URL in the Developer Portal and set it to the callback URL below
+
+# ===========================================================================
+# WEBSERVER
+# You must not leave them as blank!
+# ===========================================================================
+URL: "http://localhost:3000" # The exact same url you will use to access the dashboard, Example: https://dashboard.plexdevelopment.net (NO TRAILING SLASHES) IP also works
+Port: 3000 # The port you want the webserver to be ran on
+PublicTranscripts: false # When set to true, anyone can view ticket transcripts without logging in. When false, only ticket creators and support staff can view transcripts.
+
+secretKey: "uNLmkcssG312sY31k8s0mj" # This can be anything, We recommend using this https://www.dashlane.com/features/password-generator with at least 20 characters, ({{TIME}})
+Secure: false # Enable if you are using HTTPS
+trustProxy: false # Enable If your application is behind a reverse proxy (like Cloudflare, Nginx, etc.)
+SessionExpires: "7d" # How long should a session be valid
+
+# PERMISSION SYSTEM EXPLANATION:
+# --------------------------------------------------
+# The dashboard permission system has been upgraded! 
+# You no longer need to manually add roles for dashboard access.
+# 
+# Here's how it works now:
+# 1. Any user who has a role listed in the `SupportRoles` of any ticket category
+#    in the main config.yml file of the ticket bot will automatically have access to the dashboard.
+#
+# 2. Users will ONLY be able to view tickets from the categories where they have
+#    at least one support role set in the `SupportRoles` for that category.
+#    For example:
+#    - If a user has a support role for "Category 1", they will only see tickets from "Category 1".
+#    - If they have support roles for "Category 1" and "Category 3", they will see tickets
+#      from both of these categories but not from others.
+# 
+# This change makes managing permissions easier and ensures that support agents
+# only see the tickets they are responsible for.
+# 
+# There's no need to configure anything extra. Just ensure that the correct 
+# roles are set under `SupportRoles` for each ticket category, and the bot 
+# will handle everything else automatically.
+# --------------------------------------------------
