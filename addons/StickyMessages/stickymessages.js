@@ -1,7 +1,7 @@
 const yaml = require("yaml");
 const fs = require("fs");
 const config = yaml.load(fs.readFileSync("./addons/StickyMessages/config.yml", "utf8"));
-const StickyMessageModel = require("./StickyModel");
+const StickyDB = require("../../db/sticky");
 
 // Create a Map to store cooldown information for each channel
 const cooldowns = new Map();
@@ -12,10 +12,10 @@ module.exports.register = ({ on, client }) => {
     on("messageCreate", async (message) => {
         if (message.author.id === message.client.user.id || !message.guild) return;
 
-        const stickyMessage = await StickyMessageModel.findOne({ channelId: message.channel.id });
+        const stickyMessage = StickyDB.find(message.channel.id);
 
         if (stickyMessage) {
-            await StickyMessageModel.findByIdAndUpdate(stickyMessage._id, { $inc: { msgCount: 1 } });
+            StickyDB.incrementCount(message.channel.id);
 
             // Check if the channel has a cooldown active
             if (!cooldowns.has(message.channel.id) || cooldowns.get(message.channel.id) <= Date.now()) {

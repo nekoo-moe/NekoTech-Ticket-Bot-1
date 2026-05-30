@@ -5,8 +5,19 @@ const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
 const client = require("./index.js")
 const color = require('ansi-colors');
 const axios = require('axios')
+
+const { getConfig } = require('./db/config');
+const Guild   = require('./db/guild');
+const Tickets = require('./db/tickets');
+const Reviews = require('./db/reviews');
+
+// Chỉ load discord-html-transcripts nếu transcript type là HTML
 let discordTranscripts;
-if(config.TicketTranscriptSettings.TranscriptType === "HTML") discordTranscripts = require('discord-html-transcripts')
+const transcriptType = getConfig('transcript.type', 'HTML');
+if (transcriptType === "HTML") {
+  try { discordTranscripts = require('discord-html-transcripts'); }
+  catch (_) {}
+}
 
 const { EventEmitter } = require('events');
 const eventHandler = new EventEmitter();
@@ -15,25 +26,27 @@ exports.eventHandler = eventHandler;
 
 client.cooldowns = new Collection();
 
-const guildModel = require("./models/guildModel");
-const ticketModel = require("./models/ticketModel");
+// Khởi tạo Stripe nếu được bật
+const stripeEnabled = getConfig('stripe.enabled', false);
+const stripeKey     = getConfig('stripe.secretKey', '');
+if (stripeEnabled && stripeKey && stripeKey !== 'SECRET_KEY') {
+  const stripe = require('stripe')(stripeKey, { apiVersion: '2020-08-27' });
+  client.stripe = stripe;
+}
 
-const stripe = require('stripe')(config.StripeSettings.StripeSecretKey, {
-  apiVersion: '2020-08-27',
-});
+// Khởi tạo PayPal nếu được bật
+const paypalEnabled  = getConfig('paypal.enabled', false);
+const paypalClientID = getConfig('paypal.clientID', '');
+const paypalSecret   = getConfig('paypal.secretKey', '');
+if (paypalEnabled && paypalClientID && paypalClientID !== 'PAYPAL_CLIENT_ID') {
+  const paypal = require("paypal-rest-sdk");
+  paypal.configure({ mode: 'live', client_id: paypalClientID, client_secret: paypalSecret });
+  client.paypal = paypal;
+}
 
-client.stripe = stripe;
-
-const paypal = require("paypal-rest-sdk");
-paypal.configure({
-  'mode': 'live',
-  'client_id': config.PayPalSettings.PayPalClientID,
-  'client_secret': config.PayPalSettings.PayPalSecretKey
-});
-client.paypal = paypal;
-
-
-if(config.CryptoSettings.Enabled) {
+// Crypto price helper
+const cryptoEnabled = getConfig('crypto.enabled', false);
+if (cryptoEnabled) {
     client.getCryptoPrice = async (cryptoCurrency, fiatCurrency, fiatAmount) => {
         try {
             const url = `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether,litecoin&vs_currencies=${fiatCurrency.toLowerCase()}`;
@@ -94,116 +107,115 @@ fs.readdir('./events/', (err, files) => {
   });
 
 
-// Get average ticket rating
+// Get average ticket rating — dùng SQLite
   exports.averageRating = async function (client) {
     try {
-      const guild = await guildModel.findOne({ guildID: config.GuildID });
-      if (!guild) return "0.0";
-  
-      const ratings = guild.reviews.map(review => review.rating);
-      const nonZeroRatings = ratings.filter(rating => rating !== 0);
-      const average = nonZeroRatings.length ? (nonZeroRatings.reduce((a, b) => a + b) / nonZeroRatings.length).toFixed(1) : "0.0";
-
-      guild.averageRating = average;
-      await guild.save();
-
-      return average;
+      const avg = Reviews.averageRating(config.GuildID);
+      Guild.update(config.GuildID, { averageRating: avg });
+      return avg.toFixed(1);
     } catch (error) {
-      console.error('Error fetching guild data:', error);
+      console.error('Lỗi lấy averageRating:', error);
       return "0.0";
     }
   };
 
   exports.createSuggestionButtons = async function (suggestion, disabled = false) {
     const totalVotes = suggestion.upVotes + suggestion.downVotes;
-    const upvotePercentage = totalVotes > 0 ? Math.round((suggestion.upVotes / totalVotes) * 100) : 0;
+    const upvotePercentage   = totalVotes > 0 ? Math.round((suggestion.upVotes   / totalVotes) * 100) : 0;
     const downvotePercentage = totalVotes > 0 ? Math.round((suggestion.downVotes / totalVotes) * 100) : 0;
     
-    const buttonStyleMap = {
-        "Blurple": "Primary",
-        "Gray": "Secondary",
-        "Green": "Success",
-        "Red": "Danger"
-    };
+    const buttonStyleMap = { Blurple: 'Primary', Gray: 'Secondary', Green: 'Success', Red: 'Danger' };
 
-    const upvoteStyle = buttonStyleMap[config.SuggestionUpvote.ButtonColor] || "Secondary";
-    const downvoteStyle = buttonStyleMap[config.SuggestionDownvote.ButtonColor] || "Secondary";
-    const resetvoteStyle = buttonStyleMap[config.SuggestionResetvote.ButtonColor] || "Secondary";
-    
-    let upvoteLabel = config.SuggestionUpvote.ButtonName;
-    let downvoteLabel = config.SuggestionDownvote.ButtonName;
-    
-    upvoteLabel = upvoteLabel.replace("{count}", suggestion.upVotes).replace("{percentage}", upvotePercentage);
-    downvoteLabel = downvoteLabel.replace("{count}", suggestion.downVotes).replace("{percentage}", downvotePercentage);
+    const upvoteColor   = getConfig('suggestion.upvote.buttonColor',   'Gray');
+    const downvoteColor = getConfig('suggestion.downvote.buttonColor', 'Gray');
+    const resetColor    = getConfig('suggestion.resetvote.buttonColor','Gray');
+    const upvoteEmoji   = getConfig('suggestion.upvote.buttonEmoji',   '⬆️');
+    const downvoteEmoji = getConfig('suggestion.downvote.buttonEmoji', '⬇️');
+    const resetEmoji    = getConfig('suggestion.resetvote.buttonEmoji','🗑️');
+    const upvoteName    = getConfig('suggestion.upvote.buttonName',    '{count} votes • {percentage}%');
+    const downvoteName  = getConfig('suggestion.downvote.buttonName',  '{count} votes • {percentage}%');
+    const resetName     = getConfig('suggestion.resetvote.buttonName', 'Đặt lại phiếu');
+
+    const upvoteLabel   = upvoteName.replace('{count}', suggestion.upVotes).replace('{percentage}', upvotePercentage);
+    const downvoteLabel = downvoteName.replace('{count}', suggestion.downVotes).replace('{percentage}', downvotePercentage);
     
     const upvoteButton = new ButtonBuilder()
-        .setCustomId('upvote')
-        .setLabel(upvoteLabel)
-        .setStyle(upvoteStyle)
-        .setEmoji(config.SuggestionUpvote.ButtonEmoji)
-        .setDisabled(disabled);
+        .setCustomId('upvote').setLabel(upvoteLabel)
+        .setStyle(buttonStyleMap[upvoteColor] || 'Secondary')
+        .setEmoji(upvoteEmoji).setDisabled(disabled);
 
     const downvoteButton = new ButtonBuilder()
-        .setCustomId('downvote')
-        .setLabel(downvoteLabel)
-        .setStyle(downvoteStyle)
-        .setEmoji(config.SuggestionDownvote.ButtonEmoji)
-        .setDisabled(disabled);
+        .setCustomId('downvote').setLabel(downvoteLabel)
+        .setStyle(buttonStyleMap[downvoteColor] || 'Secondary')
+        .setEmoji(downvoteEmoji).setDisabled(disabled);
 
     const resetvoteButton = new ButtonBuilder()
-        .setCustomId('resetvote')
-        .setLabel(config.SuggestionResetvote.ButtonName)
-        .setStyle(resetvoteStyle)
-        .setEmoji(config.SuggestionResetvote.ButtonEmoji)
-        .setDisabled(disabled);
+        .setCustomId('resetvote').setLabel(resetName)
+        .setStyle(buttonStyleMap[resetColor] || 'Secondary')
+        .setEmoji(resetEmoji).setDisabled(disabled);
   
     return new ActionRowBuilder().addComponents(upvoteButton, downvoteButton, resetvoteButton);
-}
+  };
 
   exports.checkConfig = async function(client) {
     let foundErrors = [];
     try {
       let guild = client.guilds.cache.get(config.GuildID);
       if (!guild) {
-        console.log('\x1b[31m%s\x1b[0m', `[CRITICAL ERROR] Invalid GuildID in config! Bot is not in this guild.`);
-        foundErrors.push("Invalid GuildID in config! Bot is not in this guild or missing permissions.");
-        // Continue checking other config as much as possible even if guild is invalid
+        console.log('\x1b[31m%s\x1b[0m', `[LỖI NGHIÊM TRỌNG] GuildID không hợp lệ trong config!`);
+        foundErrors.push("GuildID không hợp lệ trong config!");
       }
-  
-    // Check for required locale values
-    const requiredLocaleKeys = [
-      "NoPermsMessage", "RoleBlacklistedTitle", "RoleBlacklistedMsg", "AlreadyOpenTitle", 
-      "AlreadyOpenMsg", "CloseTicketButton", "ticketCreatedTitle", "ticketCreatedMsg", 
-      "deletingTicketMsg", "PayPalInvoiceMsg", "PayPalUser", "PayPalPrice", "PayPalService", 
-      "PayPalPayInvoice", "PayPalLogTitle", "NotInTicketChannel", "ticketUserAdd", "ticketUserRemove", 
-      "ticketRenamed", "userAddTitle", "userRemoveTitle", "ticketCloseTitle", "ticketRenameTitle", 
-      "logsExecutor", "logsTicket", "logsUser", "logsTicketAuthor", "logsClosedBy", "logsDeletedBy", 
-      "restrictTicketClose", "ticketPinned", "ticketAlreadyPinned", "suggestionSubmit", "suggestionTitle", 
-      "suggestionStatsTitle", "suggestionsTotal", "suggestionsTotalUpvotes", "suggestionsTotalDownvotes", 
-      "suggestionInformation", "suggestionUpvotes", "suggestionDownvotes", "suggestionFrom", "suggestionStatus", 
-      "newSuggestionTitle", "suggestionVoteResetTitle", "suggestionVoteReset", "suggestionNoVoteTitle", 
-      "suggestionNoVote", "suggestionDownvotedTitle", "suggestionDownvoted", "suggestionAlreadyVotedTitle", 
-      "suggestionAlreadyVoted", "suggestionUpvotedTitle", "suggestionUpvoted", "suggestionAcceptedTitle", 
-      "suggestionAccepted", "suggestionDeniedTitle", "suggestionDenied", "suggestionNoPerms", 
-      "suggestionCantVoteTitle", "suggestionCantVote", "cryptoLogTitle", "restrictTicketClaim", 
-      "claimTicketButton", "unclaimTicketButton", "ticketClaimedBy", "ticketUnClaimedBy", 
-      "ticketClaimedTitle", "ticketUnClaimedTitle", "ticketNotClaimed", "ticketClaimed", "ticketUnClaimed", 
-      "ticketDidntClaim", "ticketClaimedLog", "ticketUnClaimedLog", "claimTicketMsg", "unclaimTicketMsg", 
-      "totalMessagesLog", "totalTickets", "openTickets", "totalClaims", "guildStatistics", "statsTickets", 
-      "alreadyBlacklisted", "successfullyBlacklisted", "notBlacklisted", "successfullyUnblacklisted", 
-      "userBlacklistedTitle", "userBlacklistedMsg", "ticketInformationCloseDM", "categoryCloseDM", 
-      "claimedByCloseDM", "ticketClosedCloseDM", "notClaimedCloseDM", "ticketRating", "totalReviews", 
-      "averageRating", "cooldownEmbedMsgTitle", "cooldownEmbedMsg", "selectCategory", "selectReview", 
-      "explainWhyRating", "ratingsStats", "cryptoQRCode", "userLeftTitle", "userLeftDescription", 
-      "reOpenButton", "transcriptButton", "deleteTicketButton", "ticketClosedBy", "ticketReOpenedBy", 
-      "ticketTranscriptCategory", "notAllowedDelete", "StripeLogTitle", "ticketForceDeleted", "reason", 
-      "requiredRoleMissing", "requiredRoleTitle", "notAnswered", "answeringQuestionsSuccess", 
-      "dmTranscriptClickhere", "viewTranscriptButton", "averageCompletionTime", "averageResponseTime", 
-      "whyCloseTicket", "ticketCloseReasonTitle", "ticketCategory", "ticketDetails", "autoClose", 
-      "ticketParticipants", "userDetails", "oldName", "newName", "renameDetails", "closeReasonDM", 
-      "claimDetails", "unclaimDetails", "autoClaimedNote", "transcriptTitle", "transcriptDescription",
-      "transcriptFooter", "transcriptGenerationFailed", "transcriptError", "transcriptLogTitle", "transcriptDetails"
-    ];
+
+      // Kiểm tra màu embed
+      const embedColor = getConfig('bot.embedColor', '#5e99ff');
+      const hexColorRegex = /^#([0-9a-f]{3}){1,2}$/i;
+      if (!hexColorRegex.test(embedColor)) {
+        console.log('\x1b[31m%s\x1b[0m', `[CẢNH BÁO] embedColor không phải màu HEX hợp lệ!`);
+        foundErrors.push("embedColor không phải màu HEX hợp lệ!");
+      }
+
+      // Kiểm tra logsChannelID
+      const logsChannelID = getConfig('ticket.logsChannelID', '');
+      if (!logsChannelID || logsChannelID.trim() === '') {
+        console.log('\x1b[33m%s\x1b[0m', `[CẢNH BÁO] ticket.logsChannelID chưa được cấu hình. Dùng /setup ticket logschannel để cấu hình.`);
+      } else if (guild && !guild.channels.cache.get(logsChannelID)) {
+        console.log('\x1b[31m%s\x1b[0m', `[LỖI] ticket.logsChannelID không phải kênh hợp lệ!`);
+        foundErrors.push("ticket.logsChannelID không phải kênh hợp lệ!");
+      }
+
+      // Kiểm tra categories
+      const Categories = require('./db/categories');
+      const cats = Categories.findAll();
+      if (!cats.length) {
+        console.log('\x1b[33m%s\x1b[0m', `[CẢNH BÁO] Chưa có danh mục ticket nào. Dùng /setup category create để tạo.`);
+      }
+
+      let dashboardExists = await exports.checkDashboard();
+      if (dashboardExists) {
+        const transcriptType     = getConfig('transcript.type', 'HTML');
+        const transcriptInFolder = getConfig('transcript.saveInFolder', true);
+        if (transcriptType !== 'HTML') {
+          console.log('\x1b[31m%s\x1b[0m', `[LỖI] Dashboard bật nhưng transcript.type không phải "HTML"!`);
+          foundErrors.push('Dashboard bật nhưng transcript.type không phải "HTML"!');
+        }
+        if (!transcriptInFolder) {
+          console.log('\x1b[31m%s\x1b[0m', `[LỖI] Dashboard bật nhưng transcript.saveInFolder = false!`);
+          foundErrors.push('Dashboard bật nhưng transcript.saveInFolder = false!');
+        }
+      }
+
+      if (foundErrors.length > 0) {
+        console.log('\x1b[31m%s\x1b[0m', `[CONFIG] Tìm thấy ${foundErrors.length} lỗi cấu hình.`);
+      } else {
+        console.log('\x1b[32m%s\x1b[0m', `[CONFIG] Cấu hình hợp lệ ✅`);
+      }
+
+      return foundErrors;
+    } catch (err) {
+      console.error('[CONFIG] Lỗi kiểm tra config:', err);
+      return foundErrors;
+    }
+  };
     
     // Check if Locale is defined
     if (!config.Locale) {

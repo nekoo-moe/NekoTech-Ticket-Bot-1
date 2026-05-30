@@ -6,7 +6,7 @@ const ejs = require('ejs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
-const MongoStore = require('connect-mongo');
+const SQLiteStore = require('../../db/sessionStore');
 const ms = require('ms');
 
 const app = express();
@@ -14,12 +14,17 @@ const app = express();
 const { Discord, ChannelType} = require("discord.js");
 const fs = require('fs');
 const yaml = require("js-yaml")
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
+const config  = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
 const dconfig = yaml.load(fs.readFileSync('./addons/Dashboard/config.yml', 'utf8'))
-const guildModel = require("../../models/guildModel");
-const ticketModel = require("../../models/ticketModel");
-const reviewsModel = require("../../models/reviewsModel");
-const dashboardModel = require("../../models/dashboardModel");
+
+// SQLite DB modules (thay thế Mongoose)
+const db         = require('../../db/index');
+const Guild      = require('../../db/guild');
+const Tickets    = require('../../db/tickets');
+const Reviews    = require('../../db/reviews');
+const { getConfig } = require('../../db/config');
+const { t, getTranslations } = require('../../lang/index');
+
 const { marked } = require('marked');
 const { WebhookClient } = require('discord.js');
 
@@ -27,33 +32,14 @@ const PORT = dconfig.Port;
 
 module.exports.register = ({ on, emit, client }) => {
 
-async function checkDatabase(userId) {
-    let dModel = await dashboardModel.findOne({});
-    
-    if (!dModel) {
-        dModel = new dashboardModel({
-            guildID: config.GuildID,
-            url: dconfig.URL,
-            port: PORT,
-        });
-        await dModel.save();
-    } else {
-        if (dModel.guildID !== config.GuildID) {
-            await dashboardModel.deleteMany({});
-            dModel = new dashboardModel({
-                guildID: config.GuildID,
-                url: dconfig.URL,
-                port: PORT,
-            });
-            await dModel.save();
-        } else {
-            dModel.url = dconfig.URL;
-            dModel.port = PORT;
-            await dModel.save();
-        }
-    }
+// Lưu URL/port vào SQLite thay vì dashboardModel
+function checkDatabase() {
+  db.prepare(`
+    INSERT INTO dashboard (guildID, url, port) VALUES (?, ?, ?)
+    ON CONFLICT(guildID) DO UPDATE SET url = excluded.url, port = excluded.port
+  `).run(config.GuildID, dconfig.URL, String(PORT));
 }
-checkDatabase()
+checkDatabase();
 
   const currentDirectory = path.basename(__dirname);
   if (currentDirectory !== 'Dashboard') {
@@ -67,18 +53,15 @@ checkDatabase()
 
 app.use(session({
   secret: dconfig.secretKey,
-  resave: true,
-  saveUninitialized: true,
-  store: MongoStore.create({ 
-      mongoUrl: config.MongoURI,
-      ttl: ms(dconfig.SessionExpires),
-      autoRemove: 'native'
+  resave: false,
+  saveUninitialized: false,
+  store: new (SQLiteStore(session))({
+    ttl: ms(dconfig.SessionExpires) / 1000,
   }),
-
   cookie: {
-      secure: dconfig.Secure,
-      maxAge: ms(dconfig.SessionExpires)
-  }
+    secure: dconfig.Secure,
+    maxAge: ms(dconfig.SessionExpires),
+  },
 }));
 
 
@@ -87,6 +70,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// ── i18n middleware — truyền hàm t() vào tất cả EJS templates ──────────────
+app.use((req, res, next) => {
+  res.locals.t    = t;
+  res.locals.lang = getTranslations();
+  next();
+});
+
 app.use(bodyParser.json());
 
 passport.use(
@@ -218,18 +209,17 @@ app.get('/auth', passport.authenticate('discord'));
 
 app.get('/home', isLoggedIn, async (req, res) => {
   try {
-    const guildStats = await guildModel.findOne({ guildID: config.GuildID });
+    const guildStats = Guild.getOrCreate(config.GuildID);
 
-    const ratings = guildStats.reviews.map(review => review.rating);
-    const nonZeroRatings = ratings.filter(rating => rating !== 0);
-    const averageRating = nonZeroRatings.length
-      ? (nonZeroRatings.reduce((a, b) => a + b) / nonZeroRatings.length).toFixed(1)
+    const ratings    = guildStats.reviews.map(r => r.rating);
+    const nonZero    = ratings.filter(r => r !== 0);
+    const avgRating  = nonZero.length
+      ? (nonZero.reduce((a, b) => a + b) / nonZero.length).toFixed(1)
       : "0.0";
 
-    const recentTickets = await ticketModel
-      .find({ guildID: config.GuildID })
-      .sort({ ticketCreationDate: -1 })
-      .limit(5);
+    const recentTickets = db.prepare(
+      'SELECT * FROM tickets WHERE guildID = ? ORDER BY ticketCreationDate DESC LIMIT 5'
+    ).all(config.GuildID);
 
 
       const ticketsWithUsernames = await Promise.all(
@@ -257,7 +247,7 @@ app.get('/home', isLoggedIn, async (req, res) => {
 
 app.get('/statistics', isLoggedIn, async (req, res) => {
   try {
-      const guildStats = await guildModel.findOne({ guildID: config.GuildID });
+      const guildStats = Guild.getOrCreate(config.GuildID);
       const guild = client.guilds.cache.get(config.GuildID);
 
       const ratings = guildStats.reviews.map(review => review.rating);
@@ -307,7 +297,9 @@ async function getUserRoles(userId, guildId) {
 
 app.get('/reviews', isLoggedIn, async (req, res) => {
   try {
-    const reviewsData = await reviewsModel.find({ rating: { $gte: 1 } });
+    const reviewsData = db.prepare(
+      'SELECT * FROM reviews WHERE rating >= 1 ORDER BY createdAt DESC'
+    ).all();
 
     const reviewsWithUserInfo = await Promise.all(reviewsData.map(async (review) => {
       const userInfo = await getUserInfo(review.userID);
@@ -384,7 +376,7 @@ app.get('/transcript', transcriptAccessCheck, async (req, res) => {
 
     const { channelId } = req.query;
     
-    const ticketDB = await ticketModel.findOne({ channelID: channelId });
+    const ticketDB = Tickets.findByChannelID(channelId);
     if (!ticketDB) return res.status(403).render('error', { message: 'Ticket not found' });
 
     const ticketCreator = await client.users.cache.get(ticketDB.userID);
@@ -445,39 +437,34 @@ app.get('/tickets', isLoggedIn, async (req, res) => {
       ticketType: { $in: accessibleCategories }
     };
 
+    // SQLite: bỏ qua $or search phức tạp, dùng LIKE
+    let sqlWhere = "guildID = ? AND status = 'Closed'";
+    const sqlParams = [config.GuildID];
     if (searchQuery) {
-      query = {
-        ...query,
-        $or: [
-          { identifier: { $regex: searchQuery, $options: 'i' } },
-          { userID: { $regex: searchQuery, $options: 'i' } },
-        ]
-      };
+      sqlWhere += ' AND (identifier LIKE ? OR userID LIKE ?)';
+      sqlParams.push(`%${searchQuery}%`, `%${searchQuery}%`);
     }
 
-    const totalTickets = await ticketModel.countDocuments(query);
-    const totalPages = Math.ceil(totalTickets / limit);
+    const totalTickets = db.prepare(`SELECT COUNT(*) AS cnt FROM tickets WHERE ${sqlWhere}`).get(...sqlParams).cnt;
+    const totalPages   = Math.ceil(totalTickets / limit);
 
-    const closedTickets = await ticketModel.find(query)
-      .sort({ closedAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const closedTickets = db.prepare(
+      `SELECT * FROM tickets WHERE ${sqlWhere} ORDER BY closedAt DESC LIMIT ? OFFSET ?`
+    ).all(...sqlParams, limit, skip);
 
     const closedTicketsWithInfo = await Promise.all(
       closedTickets.map(async ticket => {
-        const userInfo = await getUserInfo(ticket.userID);
-        const closedByInfo = ticket.closedBy ? await getUserInfo(ticket.closedBy) : null;
+        const userInfo     = await getUserInfo(ticket.userID);
+        const closedByInfo = ticket.closeUserID ? await getUserInfo(ticket.closeUserID) : null;
 
         return {
-          ...ticket._doc,
-          username: userInfo.username,
-          avatar: userInfo.avatarURL,
-          closedByUsername: closedByInfo ? closedByInfo.username : 'Unknown',
-          totalMessages: ticket.messages || 0,
-          createdAtFormatted: new Date(ticket.createdAt).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit'
+          ...ticket,
+          username:         userInfo.username,
+          avatar:           userInfo.avatarURL,
+          closedByUsername: closedByInfo ? closedByInfo.username : 'Không rõ',
+          totalMessages:    ticket.messages || 0,
+          createdAtFormatted: new Date(ticket.createdAt).toLocaleDateString('vi-VN', {
+            year: 'numeric', month: 'short', day: '2-digit',
           }),
           closedAtFormatted: new Date(ticket.closedAt).toLocaleDateString('en-US', {
             year: 'numeric',
@@ -514,16 +501,18 @@ app.get('/open-tickets', isLoggedIn, async (req, res) => {
   try {
     const userRoles = await getUserRoles(req.user.id, config.GuildID);
 
-    const accessibleCategories = Object.entries(config.TicketCategories || {})
-      .filter(([categoryId, category]) => 
-        category.SupportRoles?.some(role => userRoles.includes(role))
-      )
-      .map(([categoryId, category]) => category.CategoryName);
+    const Categories = require('../../db/categories');
+    const allCats = Categories.findAll();
+    const accessibleCategories = allCats
+      .filter(cat => {
+        const roles = Array.isArray(cat.supportRoles) ? cat.supportRoles : [];
+        return roles.some(role => userRoles.includes(role));
+      })
+      .map(cat => cat.categoryName);
 
-    const openTickets = await ticketModel.find({
-      status: 'Open',
-      ticketType: { $in: accessibleCategories },
-    });
+    const openTickets = db.prepare(
+      "SELECT * FROM tickets WHERE guildID = ? AND status = 'Open'"
+    ).all(config.GuildID).filter(t => accessibleCategories.includes(t.ticketType));
 
     const openTicketsTotal = openTickets.length;
 
@@ -533,7 +522,7 @@ app.get('/open-tickets', isLoggedIn, async (req, res) => {
         const claimUser = ticket.claimUser ? await getUserInfo(ticket.claimUser) : null;
 
         return {
-          ...ticket._doc,
+          ...ticket,
           username: userInfo.username,
           avatar: userInfo.avatarURL,
           claimUserInfo: claimUser
@@ -587,7 +576,7 @@ app.get('/open-tickets/:ticket_id', isLoggedIn, async (req, res) => {
   try {
     const ticketId = req.params.ticket_id;
 
-    const ticket = await ticketModel.findOne({ identifier: ticketId });
+    const ticket = db.prepare('SELECT * FROM tickets WHERE identifier = ?').get(ticketId);
     if (!ticket) {
       return res.redirect('/open-tickets');
     }
@@ -687,7 +676,7 @@ app.post('/open-tickets/:ticket_id/close', isLoggedIn, async (req, res) => {
   try {
     const ticketId = req.params.ticket_id;
 
-    const ticket = await ticketModel.findOne({ identifier: ticketId });
+    const ticket = db.prepare('SELECT * FROM tickets WHERE identifier = ?').get(ticketId);
     if (!ticket) {
       res.redirect('/open-tickets'); 
     }
@@ -708,9 +697,9 @@ app.post('/open-tickets/:ticket_id/close', isLoggedIn, async (req, res) => {
       user: req.user,
     };
 
-              await ticketModel.updateOne(
-                { channelID: channel.id },
-                {
+              Tickets.updateByChannelID(channel.id, {
+                  closeReason: null, closeNotificationTime: 0,
+              });
                     $set: {
                         closeUserID: req.user.id,
                         closedAt: Date.now(),
@@ -751,7 +740,7 @@ app.post('/open-tickets/:ticket_id/respond', isLoggedIn, async (req, res) => {
       return res.status(400).json({ error: 'Message cannot be empty.' });
     }
 
-    const ticket = await ticketModel.findOne({ identifier: ticketId });
+    const ticket = db.prepare('SELECT * FROM tickets WHERE identifier = ?').get(ticketId);
     if (!ticket) {
       return res.status(404).render('error', { message: 'Ticket not found.' });
     }
@@ -769,30 +758,14 @@ app.post('/open-tickets/:ticket_id/respond', isLoggedIn, async (req, res) => {
       avatarURL: `https://cdn.discordapp.com/avatars/${req.user.id}/${req.user.avatar}.webp?size=240` || 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Faenza-avatar-default-symbolic.svg/2048px-Faenza-avatar-default-symbolic.svg.png', // Use user's avatar
     });
 
-  if (config.TicketAlert.Enabled) {
-    const filtered = await ticketModel.find({
-      closeNotificationTime: { $exists: true, $ne: null },
-      channelID: channel.id
-    });
-
-    for (const time of filtered) {
-      if (!time) continue;
-      if (!time.channelID) continue;
-      if (time.closeNotificationTime === 0) continue;
-
-      if (time.channelID === channel.id) {
-        await ticketModel.findOneAndUpdate(
-          { channelID: channel.id },
-          { $unset: { closeReason: 1 }, $set: { closeNotificationTime: 0 } }
-        );
-
-        try {
-          const msg = await channel.messages.fetch(time.closeNotificationMsgID);
-          await msg.delete();
-        } catch (error) {
-          console.error("Error deleting message:", error);
-        }
-      }
+  if (getConfig('alert.enabled', true)) {
+    const alertTicket = Tickets.findByChannelID(channel.id);
+    if (alertTicket && alertTicket.closeNotificationTime > 0) {
+      Tickets.updateByChannelID(channel.id, { closeNotificationTime: 0, closeReason: null });
+      try {
+        const msg = await channel.messages.fetch(alertTicket.closeNotificationMsgID);
+        await msg.delete();
+      } catch (_) {}
     }
   }
 
@@ -806,7 +779,7 @@ app.post('/open-tickets/:ticket_id/respond', isLoggedIn, async (req, res) => {
 
 app.get('/open-tickets/:ticket_id/messages', isLoggedIn, async (req, res) => {
   const ticketId = req.params.ticket_id;
-  const ticket = await ticketModel.findOne({ identifier: ticketId });
+  const ticket = db.prepare('SELECT * FROM tickets WHERE identifier = ?').get(ticketId);
   const channel = await client.channels.fetch(ticket.channelID);
 
    const messages = await channel.messages.fetch({ limit: 100 });
@@ -846,7 +819,7 @@ app.post('/delete-ticket/:channelId', isLoggedIn, async (req, res) => {
   try {
       const ticketId = req.params && req.params.channelId;
 
-      await ticketModel.findOneAndDelete({ channelID: ticketId });
+      Tickets.deleteByChannelID(ticketId);
       res.redirect('/open-tickets'); 
   } catch (error) {
       console.error('Error deleting ticket:', error);

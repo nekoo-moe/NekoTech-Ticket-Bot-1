@@ -3,7 +3,7 @@ const Discord = require("discord.js");
 const { SnowflakeUtil } = require("discord.js");
 const fs = require('fs');
 const yaml = require("js-yaml");
-const GiveawayModel = require('./GiveawayModel');
+const GiveawayDB = require('../../db/giveaways');
 const config = yaml.load(fs.readFileSync('./addons/Giveaways/config.yml', 'utf8'));
 const ms = require('ms');
 const path = require('path');
@@ -14,16 +14,13 @@ module.exports.register = ({ on, emit, client }) => {
         try {
             const currentTime = Date.now();
 
-            const giveaways = await GiveawayModel.find({
-                status: 'active',
-                endTime: { $lte: currentTime },
-            });
+            const giveaways = GiveawayDB.findActive().filter(g => g.endTime <= currentTime);
 
             for (const giveaway of giveaways) {
                 const channel = client.channels.cache.get(giveaway.channelId);
                 if (!channel) {
                     console.error(`Channel ${giveaway.channelId} not found. Marking giveaway as ended.`);
-                    await GiveawayModel.updateOne({ _id: giveaway._id }, { status: 'ended' });
+                    GiveawayDB.update(giveaway.messageId, { status: 'ended' });
                     continue;
                 }
 

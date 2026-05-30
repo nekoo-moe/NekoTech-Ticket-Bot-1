@@ -1,18 +1,12 @@
 # Tài liệu Thiết kế: Việt hóa & Tái cấu trúc Bot Heiznerd-TK2
 
-## Tổng quan
+## Overview
 
-Feature này thực hiện ba thay đổi lớn song song trên bot Discord ticket Heiznerd-TK2 (fork của Plex Tickets v2.5.2):
+Feature này thực hiện ba thay đổi lớn song song trên bot Discord ticket Heiznerd-TK2 (fork của Plex Tickets v2.5.2): **(1) Việt hóa toàn bộ** — tách chuỗi hiển thị ra `lang/vi.json`, thay thế section `Locale` trong `config.yml` và các chuỗi cứng trong addons; **(2) Đơn giản hóa cấu hình** — giữ tối thiểu trong file (Token, GuildID, DB path), chuyển toàn bộ cấu hình động vào SQLite và quản lý qua lệnh `/setup` + Dashboard; **(3) Chuyển từ MongoDB/Mongoose sang SQLite3** — dùng `better-sqlite3` (synchronous), định nghĩa lại toàn bộ schema, tạo lớp `db/` thay thế Mongoose models.
 
-1. **Việt hóa toàn bộ** — Tách toàn bộ chuỗi hiển thị ra file `lang/vi.json`, thay thế section `Locale` trong `config.yml` và các chuỗi cứng trong addons.
-2. **Đơn giản hóa cấu hình** — Giữ lại tối thiểu trong file (Token, GuildID, DB path), chuyển toàn bộ cấu hình động vào SQLite và quản lý qua lệnh `/setup` + Dashboard.
-3. **Chuyển từ MongoDB/Mongoose sang SQLite3** — Dùng `better-sqlite3` (synchronous), định nghĩa lại toàn bộ schema, tạo lớp `db/` thay thế Mongoose models.
+Mục tiêu: giữ nguyên 100% tính năng hiện có, chỉ thay đổi lớp lưu trữ, cấu hình và ngôn ngữ hiển thị. Bot dùng Discord.js v14, Node.js >= 18.
 
-Mục tiêu: giữ nguyên 100% tính năng hiện có, chỉ thay đổi lớp lưu trữ, cấu hình và ngôn ngữ hiển thị.
-
----
-
-## Kiến trúc tổng thể
+## Architecture
 
 ```mermaid
 graph TD
@@ -32,234 +26,89 @@ graph TD
     M[addons/Vouch] --> C
 ```
 
----
-
-## Phần 1: Hệ thống Việt hóa (i18n)
-
-### 1.1 Kiến trúc i18n
+### Luồng tạo Ticket (sau refactor)
 
 ```mermaid
 sequenceDiagram
-    participant Bot as Bot Code
-    participant Lang as lang/vi.json
-    participant T as t() helper
+    participant U as User
+    participant D as Discord
+    participant B as Bot (ticketCreate)
+    participant DB as db/tickets.js
+    participant CFG as db/config.js
+    participant LANG as lang/vi.json
 
-    Bot->>T: t('ticket.created.title')
-    T->>Lang: lookup key
-    Lang-->>T: "Ticket Đã Tạo"
-    T-->>Bot: "Ticket Đã Tạo"
+    U->>D: Click nút tạo ticket
+    D->>B: interactionCreate
+    B->>CFG: getConfig('ticket.maxTickets')
+    CFG-->>B: 1
+    B->>DB: findOpenByUserID(userID, guildID)
+    DB-->>B: [] (chưa có ticket)
+    B->>DB: create({ guildID, channelID, userID, ... })
+    DB-->>B: newTicket
+    B->>LANG: t('ticket.created.title')
+    LANG-->>B: "Ticket Đã Tạo"
+    B->>D: Tạo channel + gửi embed tiếng Việt
+    D-->>U: Thông báo ticket đã tạo
 ```
 
-### 1.2 Cấu trúc file `lang/vi.json`
+### Cấu trúc thư mục sau refactor
 
-File được tổ chức theo namespace phân cấp để dễ tìm kiếm và bảo trì:
+```
+Heiznerd-TK2/
+├── config.yml              # Tối giản: Token, GuildID, DatabasePath
+├── index.js
+├── utils.js                # Bỏ Mongoose, dùng db/ layer
+├── lang/
+│   ├── index.js            # Helper t(), loadLang()
+│   └── vi.json             # Toàn bộ chuỗi tiếng Việt
+├── db/
+│   ├── index.js            # Khởi tạo better-sqlite3, chạy migrations
+│   ├── migrations.js       # Tạo bảng nếu chưa có
+│   ├── config.js           # getConfig(), setConfig()
+│   ├── tickets.js          # CRUD tickets
+│   ├── guild.js            # Guild stats
+│   ├── staffStats.js       # Staff statistics
+│   ├── reviews.js          # Ticket reviews
+│   ├── blacklist.js        # Blacklisted users
+│   ├── panels.js           # Ticket panels
+│   ├── categories.js       # Ticket categories (thay config.yml)
+│   ├── suggestions.js      # Suggestions
+│   ├── aiResponses.js      # AI auto responses
+│   ├── giveaways.js        # Giveaways addon
+│   ├── sticky.js           # Sticky messages addon
+│   └── invoices.js         # PayPal + Stripe invoices
+├── data/
+│   └── bot.db              # SQLite database file
+├── scripts/
+│   └── migrate-mongo-to-sqlite.js
+├── events/
+├── slashCommands/
+│   └── Utility/
+│       └── setup.js        # MỚI: lệnh /setup
+└── addons/
+    ├── Dashboard/          # Thêm res.locals.t = t, Việt hóa EJS
+    ├── Giveaways/          # Thay GiveawayModel → db/giveaways.js
+    ├── StickyMessages/     # Thay StickyModel → db/sticky.js
+    └── Vouch/              # Thêm t() cho messages
+```
 
-```json
-{
-  "common": {
-    "noPerms": "Bạn không có quyền sử dụng lệnh này!",
-    "notInTicket": "Bạn không ở trong kênh ticket!",
-    "reason": "Lý do",
-    "error": "Đã xảy ra lỗi, vui lòng thử lại."
-  },
-  "ticket": {
-    "created": {
-      "title": "Ticket Đã Tạo",
-      "msg": "Ticket của bạn đã được tạo tại"
-    },
-    "close": {
-      "button": "Đóng Ticket",
-      "title": "Nhật ký Ticket | Ticket Đã Đóng",
-      "deleting": "Đang xóa ticket sau {time} giây",
-      "reason": "Lý do đóng ticket",
-      "reasonTitle": "Lý do đóng",
-      "whyClose": "Tại sao bạn đóng ticket này?",
-      "restrictClose": "Bạn không được phép đóng ticket này!",
-      "autoClose": "Tự động đóng do không hoạt động"
-    },
-    "claim": {
-      "button": "Nhận ticket",
-      "unclaimButton": "Trả ticket",
-      "claimedBy": "Được nhận bởi",
-      "unclaimedBy": "Được trả bởi",
-      "claimedTitle": "Ticket Đã Được Nhận",
-      "unclaimedTitle": "Ticket Đã Được Trả",
-      "notClaimed": "Ticket này chưa được nhận!",
-      "claimed": "Ticket này đã được nhận bởi {user}\nHọ sẽ hỗ trợ bạn ngay!",
-      "unclaimed": "Ticket này đã được trả bởi {user}",
-      "didntClaim": "Bạn không nhận ticket này, chỉ người nhận mới có thể trả! ({user})",
-      "claimedLog": "Nhật ký Ticket | Ticket Đã Nhận",
-      "unclaimedLog": "Nhật ký Ticket | Ticket Đã Trả",
-      "claimMsg": "Bạn đã nhận ticket thành công!",
-      "unclaimMsg": "Bạn đã trả ticket thành công!",
-      "restrictClaim": "Bạn không được phép nhận ticket này!",
-      "claimDetails": "Chi tiết nhận ticket",
-      "unclaimDetails": "Chi tiết trả ticket",
-      "autoClaimedNote": "Ghi chú"
-    },
-    "blacklist": {
-      "alreadyBlacklisted": "{user} đã bị chặn rồi!",
-      "successBlacklisted": "{user} đã bị **chặn** tạo ticket thành công!",
-      "notBlacklisted": "{user} không bị chặn!",
-      "successUnblacklisted": "{user} đã được **bỏ chặn** tạo ticket thành công!",
-      "blacklistedTitle": "Bị Chặn",
-      "blacklistedMsg": "Bạn đã bị chặn tạo ticket!",
-      "roleBlacklistedTitle": "Vai trò bị chặn",
-      "roleBlacklistedMsg": "Vai trò của bạn bị chặn tạo ticket!"
-    },
-    "open": {
-      "alreadyOpenTitle": "Ticket Đang Mở",
-      "alreadyOpenMsg": "Bạn chỉ được mở tối đa **{max} ticket** cùng lúc.",
-      "selectCategory": "Chọn danh mục...",
-      "requiredRoleMissing": "Bạn không có vai trò cần thiết để mở ticket trong danh mục này!",
-      "requiredRoleTitle": "Cần Vai Trò",
-      "cooldownTitle": "Thời gian chờ",
-      "cooldownMsg": "Bạn phải chờ {time} trước khi tạo ticket mới!"
-    },
-    "info": {
-      "category": "Danh mục",
-      "details": "Chi tiết Ticket",
-      "participants": "Người tham gia",
-      "userDetails": "Thông tin người dùng",
-      "totalMessages": "Tổng tin nhắn:",
-      "transcriptCategory": "Danh mục"
-    },
-    "user": {
-      "add": "Đã thêm **{user} ({username})** vào ticket.",
-      "remove": "Đã xóa **{user} ({username})** khỏi ticket.",
-      "addTitle": "Nhật ký Ticket | Thêm Người Dùng",
-      "removeTitle": "Nhật ký Ticket | Xóa Người Dùng",
-      "leftTitle": "Người Dùng Rời Server",
-      "leftDesc": "Người tạo ticket đã rời server **({username})**"
-    },
-    "rename": {
-      "renamed": "Ticket này đã được đổi tên thành **{newName}**!",
-      "title": "Nhật ký Ticket | Đổi Tên Ticket",
-      "oldName": "Tên cũ",
-      "newName": "Tên mới",
-      "details": "Chi tiết đổi tên"
-    },
-    "reopen": {
-      "button": "Mở lại",
-      "reopenedBy": "Ticket này đã được mở lại bởi {user} ({username})"
-    },
-    "delete": {
-      "button": "Xóa",
-      "notAllowed": "Bạn không được phép xóa ticket này!",
-      "forceDeleted": "Ticket Bị Xóa Bắt Buộc"
-    },
-    "pin": {
-      "pinned": "📌 Ticket này đã được ghim!",
-      "alreadyPinned": "Ticket này đã được ghim rồi!"
-    },
-    "logs": {
-      "executor": "Người thực hiện",
-      "ticket": "Ticket",
-      "user": "Người dùng",
-      "ticketAuthor": "Người tạo ticket",
-      "closedBy": "Đóng bởi",
-      "deletedBy": "Xóa bởi",
-      "totalMessages": "Tổng tin nhắn:"
-    },
-    "closeDM": {
-      "ticketInfo": "• Thông tin Ticket",
-      "category": "Danh mục:",
-      "claimedBy": "Được nhận bởi:",
-      "closed": "Ticket Đã Đóng",
-      "notClaimed": "Chưa được nhận",
-      "closeReason": "Lý do đóng"
-    },
-    "transcript": {
-      "button": "Transcript",
-      "title": "📝 Transcript Ticket",
-      "description": "Transcript cho ticket **#{identifier}** đã được tạo.",
-      "footer": "Tạo bởi {user}",
-      "failed": "Không thể tạo transcript. Ticket có thể chưa đủ tin nhắn.",
-      "error": "Đã xảy ra lỗi khi tạo transcript. Vui lòng thử lại.",
-      "logTitle": "Nhật ký Ticket | Transcript Đã Tạo",
-      "details": "Chi tiết Transcript",
-      "viewButton": "Xem Transcript",
-      "dmClickhere": "Nhấn vào đây để xem transcript"
-    },
-    "questions": {
-      "notAnswered": "Chưa trả lời",
-      "success": "Cảm ơn bạn đã trả lời các câu hỏi!"
-    }
-  },
-  "review": {
-    "selectReview": "Chọn đánh giá...",
-    "explainWhy": "Vui lòng giải thích lý do bạn đưa ra đánh giá này",
-    "stats": "Đánh giá",
-    "totalReviews": "Tổng đánh giá:",
-    "averageRating": "Đánh giá trung bình:",
-    "rated": "> Bạn đã đánh giá ticket này: {star} ({rating}/5)",
-    "reviewed": "> Bạn đã đánh giá ticket này: {star} ({rating}/5)\n> Nhận xét: {reviewMessage}",
-    "thankYou": "Cảm ơn bạn đã để lại đánh giá!",
-    "ticketRating": "Đánh giá Ticket"
-  },
-  "stats": {
-    "totalTickets": "Tổng Ticket:",
-    "openTickets": "Ticket Đang Mở:",
-    "totalClaims": "Tổng Nhận:",
-    "guildStats": "Thống kê Server",
-    "tickets": "Tickets",
-    "avgCompletion": "Thời gian hoàn thành TB:",
-    "avgResponse": "Thời gian phản hồi TB:"
-  },
-  "suggestion": {
-    "submit": "Đề xuất của bạn đã được gửi, cảm ơn!",
-    "title": "Đề xuất",
-    "statsTitle": "Đề xuất",
-    "total": "Tổng đề xuất:",
-    "totalUpvotes": "Tổng lượt thích:",
-    "totalDownvotes": "Tổng lượt không thích:",
-    "information": "Thông tin",
-    "upvotes": "Lượt thích:",
-    "downvotes": "Lượt không thích:",
-    "from": "Từ:",
-    "status": "Trạng thái:",
-    "newTitle": "💡 Đề xuất mới",
-    "voteResetTitle": "Đặt lại bình chọn",
-    "voteReset": "Bình chọn của bạn trên đề xuất [này]({link}) đã được đặt lại!",
-    "noVoteTitle": "Chưa bình chọn",
-    "noVote": "Bạn chưa bình chọn cho đề xuất [này]({link})!",
-    "downvotedTitle": "Đã không thích",
-    "downvoted": "Bạn đã không thích đề xuất [này]({link}) thành công!",
-    "alreadyVotedTitle": "Đã bình chọn",
-    "alreadyVoted": "Bạn đã bình chọn cho đề xuất [này]({link}) rồi! Nhấn Đặt lại để thay đổi.",
-    "upvotedTitle": "Đã thích",
-    "upvoted": "Bạn đã thích đề xuất [này]({link}) thành công!",
-    "acceptedTitle": "Đề xuất được chấp nhận",
-    "accepted": "Bạn đã chấp nhận đề xuất [này]({link}) thành công!",
-    "deniedTitle": "Đề xuất bị từ chối",
-    "denied": "Bạn đã từ chối đề xuất [này]({link}) thành công!",
-    "noPerms": "Bạn không được phép chấp nhận hoặc từ chối đề xuất!",
-    "cantVoteTitle": "Không thể bình chọn",
-    "cantVote": "Bạn không thể bình chọn cho đề xuất [này]({link}) vì nó đã được chấp nhận hoặc từ chối!"
-  },
-  "payment": {
-    "paypal": {
-      "invoiceMsg": "Vui lòng nhấn nút bên dưới để thanh toán!",
-      "user": "Người dùng:",
-      "price": "Giá:",
-      "service": "Dịch vụ:",
-      "payButton": "Thanh toán hóa đơn",
-      "logTitle": "Nhật ký Ticket | Hóa đơn PayPal"
-    },
-    "stripe": {
-      "logTitle": "Nhật ký Ticket | Hóa đơn Stripe"
-    },
-    "crypto": {
-      "logTitle": "Nhật ký Ticket | Thanh toán Crypto",
-      "qrCode": "Mã QR"
-    }
-  },
-  "ai": {
-    "summary": "Tóm tắt AI"
-  }
+## Components and Interfaces
+
+### Component 1: Hệ thống i18n (`lang/`)
+
+**Mục đích:** Cung cấp hàm `t()` để tra cứu chuỗi tiếng Việt theo key phân cấp, hỗ trợ thay thế biến động.
+
+**Interface:**
+
+```javascript
+// lang/index.js
+interface I18n {
+  t(key: string, vars?: Record<string, string>): string
+  loadLang(langCode: string): void
 }
+```
 
-### 1.3 Module `lang/index.js` — Helper `t()`
+**Triển khai:**
 
 ```javascript
 // lang/index.js
@@ -273,21 +122,14 @@ function loadLang(langCode = 'vi') {
   translations = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-/**
- * Lấy chuỗi dịch theo key phân cấp (dot notation)
- * @param {string} key  - Ví dụ: 'ticket.close.button'
- * @param {Object} vars - Biến thay thế, ví dụ: { time: '5', user: '@Alice' }
- * @returns {string}
- */
 function t(key, vars = {}) {
   const parts = key.split('.');
   let value = translations;
   for (const part of parts) {
-    if (value === undefined) return key; // fallback: trả về key nếu không tìm thấy
+    if (value === undefined || value === null) return key;
     value = value[part];
   }
   if (typeof value !== 'string') return key;
-  // Thay thế biến dạng {varName}
   return value.replace(/\{(\w+)\}/g, (_, name) => vars[name] ?? `{${name}}`);
 }
 
@@ -295,17 +137,13 @@ loadLang('vi');
 module.exports = { t, loadLang };
 ```
 
-**Preconditions:**
-- File `lang/vi.json` tồn tại và hợp lệ JSON
-- `key` là chuỗi không rỗng
+**Trách nhiệm:**
+- Load file JSON ngôn ngữ khi khởi động
+- Tra cứu key phân cấp (dot notation)
+- Thay thế biến `{varName}` trong chuỗi
+- Fallback về key nếu không tìm thấy (không throw)
 
-**Postconditions:**
-- Trả về chuỗi đã dịch với biến được thay thế
-- Nếu key không tồn tại, trả về chính key đó (không throw)
-
-### 1.4 Việt hóa Dashboard EJS
-
-Truyền object `lang` vào tất cả EJS views thông qua `res.locals`:
+**Tích hợp Dashboard EJS:**
 
 ```javascript
 // addons/Dashboard/dashboard.js — middleware
@@ -316,114 +154,138 @@ app.use((req, res, next) => {
 });
 ```
 
-Trong EJS views:
 ```html
-<!-- Trước (tiếng Anh cứng) -->
-<h1>Open Tickets</h1>
-<button>Close Ticket</button>
-
-<!-- Sau (dùng t()) -->
-<h1><%= t('ticket.open.title') %></h1>
+<!-- views/home.ejs -->
+<h1><%= t('dashboard.home.title') %></h1>
 <button><%= t('ticket.close.button') %></button>
 ```
 
 ---
 
-## Phần 2: Đơn giản hóa Cấu hình
+### Component 2: Database Layer (`db/`)
 
-### 2.1 `config.yml` tối giản (chỉ còn 3 trường bắt buộc)
+**Mục đích:** Thay thế toàn bộ Mongoose models bằng các module query synchronous dùng `better-sqlite3`.
 
-```yaml
-# config.yml — Chỉ giữ lại thông tin không thể lưu vào DB
-Token: "BOT_TOKEN"
-GuildID: "GUILD_ID"
-DatabasePath: "./data/bot.db"
-
-# Dashboard OAuth2 (vẫn cần ở file vì cần trước khi DB khởi động)
-Dashboard:
-  ClientID: "CLIENT_ID"
-  ClientSecret: "CLIENT_SECRET"
-  CallbackURL: "http://localhost:3000/auth/discord/callback"
-  Port: 3000
-  SecretKey: "SESSION_SECRET"
-```
-
-### 2.2 Bảng `guild_config` trong SQLite — Config động
-
-Tất cả cấu hình còn lại được lưu dưới dạng key-value JSON trong bảng `guild_config`:
-
-```sql
-CREATE TABLE IF NOT EXISTS guild_config (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL  -- JSON string
-);
-```
-
-Ví dụ dữ liệu:
-
-| key | value |
-|-----|-------|
-| `ticket.maxTickets` | `"1"` |
-| `ticket.deleteTime` | `"5"` |
-| `ticket.logsChannelID` | `"123456789"` |
-| `ticket.cooldown` | `"0"` |
-| `claiming.enabled` | `"true"` |
-| `claiming.maxPerStaff` | `"3"` |
-| `workingHours.enabled` | `"false"` |
-| `workingHours.timezone` | `"Asia/Ho_Chi_Minh"` |
-| `workingHours.schedule` | `"{\"Monday\":\"07:00-16:00\",...}"` |
-| `review.enabled` | `"true"` |
-| `embedColor` | `"#5e99ff"` |
-
-### 2.3 Lệnh `/setup` — Cấu hình qua Discord
-
-```mermaid
-graph TD
-    A[/setup] --> B[ticket]
-    A --> C[category]
-    A --> D[panel]
-    A --> E[claiming]
-    A --> F[workinghours]
-    A --> G[review]
-    B --> B1[/setup ticket maxtickets <n>]
-    B --> B2[/setup ticket deletetime <s>]
-    B --> B3[/setup ticket logschannel <#channel>]
-    C --> C1[/setup category create]
-    C --> C2[/setup category edit <id>]
-    C --> C3[/setup category delete <id>]
-    D --> D1[/setup panel create]
-    D --> D2[/setup panel send <id> <#channel>]
-```
-
-**Interface lệnh `/setup`:**
+**Interface chung của mỗi module:**
 
 ```javascript
-// slashCommands/Utility/setup.js
-{
-  name: 'setup',
-  description: 'Cấu hình bot (chỉ dành cho Admin)',
-  options: [
-    {
-      name: 'ticket',
-      type: ApplicationCommandOptionType.Subcommand,
-      description: 'Cấu hình cài đặt ticket',
-      options: [
-        { name: 'maxtickets', type: Integer, description: 'Số ticket tối đa mỗi người' },
-        { name: 'deletetime', type: Integer, description: 'Thời gian xóa ticket (giây)' },
-        { name: 'logschannel', type: Channel, description: 'Kênh ghi log' },
-        { name: 'cooldown', type: Integer, description: 'Cooldown tạo ticket (giây, 0=tắt)' },
-      ]
-    },
-    {
-      name: 'category',
-      type: ApplicationCommandOptionType.SubcommandGroup,
-      // ...
-    }
-  ]
+// Ví dụ: db/tickets.js
+interface TicketsDB {
+  create(data: TicketData): Ticket
+  findByChannelID(channelID: string): Ticket | null
+  findOpenByUserID(userID: string, guildID: string): Ticket[]
+  updateByChannelID(channelID: string, updates: Partial<Ticket>): void
+  deleteByChannelID(channelID: string): void
+  countOpenByGuild(guildID: string): number
 }
 ```
 
-### 2.4 Hàm đọc/ghi config động
+**Khởi tạo (`db/index.js`):**
+
+```javascript
+const Database = require('better-sqlite3');
+const path = require('path');
+const fs = require('fs');
+const yaml = require('js-yaml');
+
+const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
+const dbPath = config.DatabasePath || './data/bot.db';
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+const db = new Database(dbPath);
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
+require('./migrations')(db);
+
+module.exports = db;
+```
+
+**Ví dụ đầy đủ `db/tickets.js`:**
+
+```javascript
+const db = require('./index.js');
+
+const Tickets = {
+  create(data) {
+    const stmt = db.prepare(`
+      INSERT INTO tickets (guildID, channelID, userID, ticketType, button, msgID,
+        questions, participants, ticketCreationDate, identifier, status)
+      VALUES (@guildID, @channelID, @userID, @ticketType, @button, @msgID,
+        @questions, @participants, @ticketCreationDate, @identifier, 'open')
+    `);
+    stmt.run({
+      ...data,
+      questions: JSON.stringify(data.questions || []),
+      participants: JSON.stringify(data.participants || []),
+      ticketCreationDate: new Date().toISOString(),
+    });
+    return Tickets.findByChannelID(data.channelID);
+  },
+
+  findByChannelID(channelID) {
+    const row = db.prepare('SELECT * FROM tickets WHERE channelID = ?').get(channelID);
+    return Tickets._parse(row);
+  },
+
+  findOpenByUserID(userID, guildID) {
+    return db.prepare(
+      "SELECT * FROM tickets WHERE userID = ? AND guildID = ? AND status = 'open'"
+    ).all(userID, guildID).map(Tickets._parse);
+  },
+
+  updateByChannelID(channelID, updates) {
+    // Serialize JSON fields nếu cần
+    const serialized = { ...updates };
+    if (serialized.questions) serialized.questions = JSON.stringify(serialized.questions);
+    if (serialized.participants) serialized.participants = JSON.stringify(serialized.participants);
+    const fields = Object.keys(serialized).map(k => `${k} = @${k}`).join(', ');
+    db.prepare(`UPDATE tickets SET ${fields}, updatedAt = datetime('now') WHERE channelID = @channelID`)
+      .run({ ...serialized, channelID });
+  },
+
+  deleteByChannelID(channelID) {
+    db.prepare('DELETE FROM tickets WHERE channelID = ?').run(channelID);
+  },
+
+  countOpenByGuild(guildID) {
+    return db.prepare(
+      "SELECT COUNT(*) as cnt FROM tickets WHERE guildID = ? AND status = 'open'"
+    ).get(guildID).cnt;
+  },
+
+  _parse(row) {
+    if (!row) return null;
+    return {
+      ...row,
+      questions: JSON.parse(row.questions || '[]'),
+      participants: JSON.parse(row.participants || '[]'),
+      claimed: Boolean(row.claimed),
+      archived: Boolean(row.archived),
+      inactivityWarningSent: Boolean(row.inactivityWarningSent),
+    };
+  }
+};
+
+module.exports = Tickets;
+```
+
+---
+
+### Component 3: Config động (`db/config.js`)
+
+**Mục đích:** Lưu và đọc cấu hình bot từ SQLite thay vì `config.yml`.
+
+**Interface:**
+
+```javascript
+interface ConfigDB {
+  getConfig(key: string, defaultValue?: any): any
+  setConfig(key: string, value: any): void
+  getAllConfig(): Record<string, any>
+}
+```
+
+**Triển khai:**
 
 ```javascript
 // db/config.js
@@ -438,7 +300,8 @@ function getConfig(key, defaultValue = null) {
 function setConfig(key, value) {
   const json = JSON.stringify(value);
   db.prepare(
-    'INSERT INTO guild_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+    'INSERT INTO guild_config (key, value) VALUES (?, ?) ' +
+    'ON CONFLICT(key) DO UPDATE SET value = excluded.value'
   ).run(key, json);
 }
 
@@ -456,106 +319,165 @@ module.exports = { getConfig, setConfig, getAllConfig };
 
 ---
 
-## Phần 3: Chuyển sang SQLite3
+### Component 4: Lệnh `/setup`
 
-### 3.1 Kiến trúc Database Layer
+**Mục đích:** Cho phép admin cấu hình bot trực tiếp qua Discord slash commands thay vì sửa file.
 
-```mermaid
-graph TD
-    A[Bot Code / Events / Commands] --> B[db/ layer]
-    B --> C[better-sqlite3]
-    C --> D[bot.db]
-    B --> E[db/tickets.js]
-    B --> F[db/guild.js]
-    B --> G[db/staffStats.js]
-    B --> H[db/reviews.js]
-    B --> I[db/blacklist.js]
-    B --> J[db/panels.js]
-    B --> K[db/suggestions.js]
-    B --> L[db/aiResponses.js]
-    B --> M[db/config.js]
-    B --> N[db/giveaways.js]
-    B --> O[db/sticky.js]
-    B --> P[db/invoices.js]
-```
-
-### 3.2 Khởi tạo Database — `db/index.js`
+**Interface lệnh:**
 
 ```javascript
-// db/index.js
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
-const yaml = require('js-yaml');
-
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
-const dbPath = config.DatabasePath || './data/bot.db';
-
-// Đảm bảo thư mục tồn tại
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-
-const db = new Database(dbPath);
-
-// Bật WAL mode để tăng hiệu năng đọc đồng thời
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-// Chạy migrations
-require('./migrations')(db);
-
-module.exports = db;
+// slashCommands/Utility/setup.js
+{
+  name: 'setup',
+  description: 'Cấu hình bot (chỉ dành cho Admin)',
+  defaultMemberPermissions: PermissionFlagsBits.Administrator,
+  options: [
+    {
+      name: 'ticket',
+      type: SubcommandGroup,
+      description: 'Cấu hình cài đặt ticket',
+      options: [
+        { name: 'maxtickets', type: Subcommand, options: [{ name: 'value', type: Integer }] },
+        { name: 'deletetime', type: Subcommand, options: [{ name: 'seconds', type: Integer }] },
+        { name: 'logschannel', type: Subcommand, options: [{ name: 'channel', type: Channel }] },
+        { name: 'cooldown', type: Subcommand, options: [{ name: 'seconds', type: Integer }] },
+      ]
+    },
+    {
+      name: 'category',
+      type: SubcommandGroup,
+      description: 'Quản lý danh mục ticket',
+      options: [
+        { name: 'create', type: Subcommand },
+        { name: 'edit', type: Subcommand, options: [{ name: 'id', type: String }] },
+        { name: 'delete', type: Subcommand, options: [{ name: 'id', type: String }] },
+        { name: 'list', type: Subcommand },
+      ]
+    },
+    {
+      name: 'panel',
+      type: SubcommandGroup,
+      description: 'Quản lý panel ticket',
+      options: [
+        { name: 'create', type: Subcommand },
+        { name: 'send', type: Subcommand, options: [
+          { name: 'panel_id', type: String },
+          { name: 'channel', type: Channel }
+        ]},
+      ]
+    },
+    {
+      name: 'claiming',
+      type: SubcommandGroup,
+      description: 'Cấu hình hệ thống nhận ticket'
+    },
+    {
+      name: 'workinghours',
+      type: SubcommandGroup,
+      description: 'Cấu hình giờ làm việc'
+    }
+  ]
+}
 ```
 
-### 3.3 Schema SQLite đầy đủ
+---
 
-#### Bảng `tickets`
+### Component 5: Migration Script
+
+**Mục đích:** Chuyển dữ liệu từ MongoDB sang SQLite một lần duy nhất.
+
+**Interface:**
+
+```javascript
+// scripts/migrate-mongo-to-sqlite.js
+async function migrate(mongoURI: string): Promise<void>
+// Chạy: MONGO_URI=... node scripts/migrate-mongo-to-sqlite.js
+```
+
+**Triển khai (pattern chính):**
+
+```javascript
+async function migrate() {
+  await mongoose.connect(process.env.MONGO_URI);
+
+  // Dùng transaction để đảm bảo atomicity
+  const insertTickets = db.transaction((tickets) => {
+    for (const t of tickets) {
+      db.prepare(`INSERT OR IGNORE INTO tickets (...) VALUES (...)`).run({
+        ...mapTicketFields(t),
+        questions: JSON.stringify(t.questions || []),
+        participants: JSON.stringify(t.participants || []),
+      });
+    }
+  });
+
+  const tickets = await OldTicketModel.find({}).lean();
+  insertTickets(tickets);
+  console.log(`✅ Migrated ${tickets.length} tickets`);
+
+  // Tương tự cho guild_stats, staff_stats, reviews, blacklist...
+  await mongoose.disconnect();
+}
+```
+
+## Data Models
+
+### Model 1: `tickets` (SQLite)
 
 ```sql
 CREATE TABLE IF NOT EXISTS tickets (
-  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-  guildID               TEXT NOT NULL,
-  channelID             TEXT UNIQUE NOT NULL,
-  userID                TEXT NOT NULL,
-  ticketType            TEXT,
-  button                TEXT,
-  msgID                 TEXT,
-  claimed               INTEGER DEFAULT 0,       -- BOOLEAN: 0/1
-  claimUser             TEXT,
-  messages              INTEGER DEFAULT 0,
-  lastMessageSent       TEXT,                    -- ISO datetime string
-  status                TEXT DEFAULT 'open',     -- 'open' | 'closed' | 'archived'
-  closeUserID           TEXT,
-  questions             TEXT DEFAULT '[]',       -- JSON array
-  participants          TEXT DEFAULT '[]',       -- JSON array
-  ticketCreationDate    TEXT,
-  closedAt              TEXT,
-  identifier            TEXT,
-  closeReason           TEXT DEFAULT 'Không có lý do.',
-  closeNotificationTime INTEGER,
-  closeNotificationMsgID TEXT,
+  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  guildID                 TEXT NOT NULL,
+  channelID               TEXT UNIQUE NOT NULL,
+  userID                  TEXT NOT NULL,
+  ticketType              TEXT,
+  button                  TEXT,
+  msgID                   TEXT,
+  claimed                 INTEGER DEFAULT 0,
+  claimUser               TEXT,
+  messages                INTEGER DEFAULT 0,
+  lastMessageSent         TEXT,
+  status                  TEXT DEFAULT 'open',
+  closeUserID             TEXT,
+  questions               TEXT DEFAULT '[]',
+  participants            TEXT DEFAULT '[]',
+  ticketCreationDate      TEXT,
+  closedAt                TEXT,
+  identifier              TEXT,
+  closeReason             TEXT DEFAULT 'Không có lý do.',
+  closeNotificationTime   INTEGER,
+  closeNotificationMsgID  TEXT,
   closeNotificationUserID TEXT,
-  transcriptID          TEXT,
-  priority              TEXT,
-  priorityName          TEXT,
-  waitingReplyFrom      TEXT,
-  firstStaffResponse    TEXT,
-  inactivityWarningSent INTEGER DEFAULT 0,
-  priorityCooldown      TEXT,
-  originalCategoryID    TEXT,
-  archived              INTEGER DEFAULT 0,
-  archivedBy            TEXT,
-  archivedAt            INTEGER,
-  archiveMsgID          TEXT,
-  aiSummary             TEXT,
-  createdAt             TEXT DEFAULT (datetime('now')),
-  updatedAt             TEXT DEFAULT (datetime('now'))
+  transcriptID            TEXT,
+  priority                TEXT,
+  priorityName            TEXT,
+  waitingReplyFrom        TEXT,
+  firstStaffResponse      TEXT,
+  inactivityWarningSent   INTEGER DEFAULT 0,
+  priorityCooldown        TEXT,
+  originalCategoryID      TEXT,
+  archived                INTEGER DEFAULT 0,
+  archivedBy              TEXT,
+  archivedAt              INTEGER,
+  archiveMsgID            TEXT,
+  aiSummary               TEXT,
+  createdAt               TEXT DEFAULT (datetime('now')),
+  updatedAt               TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_tickets_guildID ON tickets(guildID);
 CREATE INDEX IF NOT EXISTS idx_tickets_userID ON tickets(userID);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 ```
 
-#### Bảng `guild_stats`
+**Quy tắc validation:**
+- `channelID` là UNIQUE — mỗi channel Discord chỉ có 1 ticket
+- `status` ∈ `{'open', 'closed', 'archived'}`
+- `questions` và `participants` lưu dưới dạng JSON string (mảng)
+- `claimed`, `archived`, `inactivityWarningSent` là BOOLEAN (0/1)
+
+---
+
+### Model 2: `guild_stats` (SQLite)
 
 ```sql
 CREATE TABLE IF NOT EXISTS guild_stats (
@@ -575,7 +497,9 @@ CREATE TABLE IF NOT EXISTS guild_stats (
 );
 ```
 
-#### Bảng `staff_stats`
+---
+
+### Model 3: `staff_stats` (SQLite)
 
 ```sql
 CREATE TABLE IF NOT EXISTS staff_stats (
@@ -591,14 +515,20 @@ CREATE TABLE IF NOT EXISTS staff_stats (
   totalRatings        INTEGER DEFAULT 0,
   totalRatingScore    REAL DEFAULT 0,
   averageRating       REAL DEFAULT 0,
-  weekly              TEXT DEFAULT '[]',   -- JSON array
-  monthly             TEXT DEFAULT '[]',   -- JSON array
-  yearly              TEXT DEFAULT '[]',   -- JSON array
-  ticketsHistory      TEXT DEFAULT '[]'    -- JSON array
+  weekly              TEXT DEFAULT '[]',
+  monthly             TEXT DEFAULT '[]',
+  yearly              TEXT DEFAULT '[]',
+  ticketsHistory      TEXT DEFAULT '[]'
 );
 ```
 
-#### Bảng `reviews`
+**Quy tắc validation:**
+- `weekly`, `monthly`, `yearly`, `ticketsHistory` lưu JSON array
+- Mỗi phần tử `weekly[]` có dạng: `{weekNumber, year, messages, claims, closedTickets, ...}`
+
+---
+
+### Model 4: `reviews` (SQLite)
 
 ```sql
 CREATE TABLE IF NOT EXISTS reviews (
@@ -621,7 +551,13 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 ```
 
-#### Bảng `blacklisted_users`
+**Quy tắc validation:**
+- `rating` ∈ `{1, 2, 3, 4, 5}`
+- `alreadyRated` là BOOLEAN (0/1)
+
+---
+
+### Model 5: `blacklisted_users` (SQLite)
 
 ```sql
 CREATE TABLE IF NOT EXISTS blacklisted_users (
@@ -632,7 +568,9 @@ CREATE TABLE IF NOT EXISTS blacklisted_users (
 );
 ```
 
-#### Bảng `ticket_panels`
+---
+
+### Model 6: `ticket_panels` (SQLite)
 
 ```sql
 CREATE TABLE IF NOT EXISTS ticket_panels (
@@ -647,12 +585,14 @@ CREATE TABLE IF NOT EXISTS ticket_panels (
 );
 ```
 
-#### Bảng `ticket_categories` (mới — thay thế config.yml)
+---
+
+### Model 7: `ticket_categories` (SQLite — MỚI, thay thế config.yml)
 
 ```sql
 CREATE TABLE IF NOT EXISTS ticket_categories (
   id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-  categoryKey         TEXT UNIQUE NOT NULL,   -- ví dụ: 'TicketCategory1'
+  categoryKey         TEXT UNIQUE NOT NULL,
   categoryName        TEXT NOT NULL,
   description         TEXT DEFAULT '',
   parentCategoryID    TEXT NOT NULL,
@@ -660,60 +600,69 @@ CREATE TABLE IF NOT EXISTS ticket_categories (
   embedMessage        TEXT,
   categoryEmoji       TEXT DEFAULT '',
   buttonColor         TEXT DEFAULT 'Green',
-  supportRoles        TEXT DEFAULT '[]',      -- JSON array
+  supportRoles        TEXT DEFAULT '[]',
   mentionSupportRoles INTEGER DEFAULT 0,
   channelName         TEXT DEFAULT 'ticket-{username}',
   logsChannelID       TEXT DEFAULT '',
-  requiredRoles       TEXT DEFAULT '[]',      -- JSON array
-  questions           TEXT DEFAULT '[]',      -- JSON array
+  requiredRoles       TEXT DEFAULT '[]',
+  questions           TEXT DEFAULT '[]',
   sortOrder           INTEGER DEFAULT 0,
   enabled             INTEGER DEFAULT 1
 );
 ```
 
-#### Bảng `suggestions`
+**Quy tắc validation:**
+- `buttonColor` ∈ `{'Blurple', 'Gray', 'Green', 'Red'}`
+- `supportRoles`, `requiredRoles`, `questions` lưu JSON array
+- `categoryName` tối đa 80 ký tự (giới hạn Discord button)
+
+---
+
+### Model 8: `guild_config` (SQLite — Config động)
+
+```sql
+CREATE TABLE IF NOT EXISTS guild_config (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+```
+
+**Các key quan trọng:**
+
+| Key | Kiểu | Mô tả |
+|-----|------|-------|
+| `ticket.maxTickets` | number | Số ticket tối đa mỗi người |
+| `ticket.deleteTime` | number | Giây trước khi xóa ticket |
+| `ticket.logsChannelID` | string | Kênh log mặc định |
+| `ticket.cooldown` | number | Cooldown tạo ticket (giây) |
+| `claiming.enabled` | boolean | Bật/tắt hệ thống nhận ticket |
+| `claiming.maxPerStaff` | number | Số ticket tối đa mỗi staff |
+| `workingHours.enabled` | boolean | Bật/tắt giờ làm việc |
+| `workingHours.timezone` | string | Timezone (VD: Asia/Ho_Chi_Minh) |
+| `workingHours.schedule` | object | Lịch làm việc theo ngày |
+| `review.enabled` | boolean | Bật/tắt hệ thống đánh giá |
+| `embedColor` | string | Màu embed mặc định (hex) |
+
+---
+
+### Model 9: `suggestions` (SQLite)
 
 ```sql
 CREATE TABLE IF NOT EXISTS suggestions (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  msgID     TEXT UNIQUE,
-  userID    TEXT,
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  msgID      TEXT UNIQUE,
+  userID     TEXT,
   suggestion TEXT,
-  upVotes   INTEGER DEFAULT 0,
-  downVotes INTEGER DEFAULT 0,
-  status    TEXT DEFAULT 'pending',
-  voters    TEXT DEFAULT '[]'   -- JSON array [{userID, voteType}]
+  upVotes    INTEGER DEFAULT 0,
+  downVotes  INTEGER DEFAULT 0,
+  status     TEXT DEFAULT 'pending',
+  voters     TEXT DEFAULT '[]'
 );
 ```
 
-#### Bảng `ai_auto_responses`
+---
 
-```sql
-CREATE TABLE IF NOT EXISTS ai_auto_responses (
-  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-  messageId             TEXT UNIQUE NOT NULL,
-  userId                TEXT NOT NULL,
-  channelId             TEXT NOT NULL,
-  guildId               TEXT NOT NULL,
-  userMessage           TEXT NOT NULL,
-  responseKey           TEXT NOT NULL,
-  aiConfidence          REAL NOT NULL,
-  aiReasoning           TEXT,
-  responseType          TEXT NOT NULL,
-  responseMessage       TEXT NOT NULL,
-  userFeedback          TEXT,
-  feedbackTimestamp     TEXT,
-  responseTimestamp     TEXT DEFAULT (datetime('now')),
-  buttonInteractionCount INTEGER DEFAULT 0,
-  month                 INTEGER NOT NULL,
-  year                  INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_ai_userId ON ai_auto_responses(userId);
-CREATE INDEX IF NOT EXISTS idx_ai_responseKey ON ai_auto_responses(responseKey);
-CREATE INDEX IF NOT EXISTS idx_ai_monthYear ON ai_auto_responses(month, year);
-```
-
-#### Bảng `giveaways` (addon)
+### Model 10: `giveaways` (SQLite — Addon)
 
 ```sql
 CREATE TABLE IF NOT EXISTS giveaways (
@@ -724,14 +673,16 @@ CREATE TABLE IF NOT EXISTS giveaways (
   prize             TEXT NOT NULL,
   winners           INTEGER NOT NULL,
   endTime           INTEGER NOT NULL,
-  entrants          TEXT DEFAULT '[]',   -- JSON array of userIDs
+  entrants          TEXT DEFAULT '[]',
   status            TEXT DEFAULT 'active',
   minServerJoinDate TEXT,
   minJoinDurationMs INTEGER DEFAULT 0
 );
 ```
 
-#### Bảng `sticky_messages` (addon)
+---
+
+### Model 11: `sticky_messages` (SQLite — Addon)
 
 ```sql
 CREATE TABLE IF NOT EXISTS sticky_messages (
@@ -741,267 +692,347 @@ CREATE TABLE IF NOT EXISTS sticky_messages (
 );
 ```
 
-#### Bảng `invoices` (PayPal + Stripe hợp nhất)
+---
+
+### Model 12: `invoices` (SQLite — PayPal + Stripe hợp nhất)
 
 ```sql
 CREATE TABLE IF NOT EXISTS invoices (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  type        TEXT NOT NULL,   -- 'paypal' | 'stripe'
-  guildID     TEXT,
-  channelID   TEXT,
-  userID      TEXT,
-  sellerID    TEXT,
-  service     TEXT,
-  amount      REAL,
-  currency    TEXT,
-  status      TEXT DEFAULT 'UNPAID',
-  invoiceID   TEXT,
-  invoiceURL  TEXT,
-  createdAt   TEXT DEFAULT (datetime('now'))
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  type       TEXT NOT NULL,
+  guildID    TEXT,
+  channelID  TEXT,
+  userID     TEXT,
+  sellerID   TEXT,
+  service    TEXT,
+  amount     REAL,
+  currency   TEXT,
+  status     TEXT DEFAULT 'UNPAID',
+  invoiceID  TEXT,
+  invoiceURL TEXT,
+  createdAt  TEXT DEFAULT (datetime('now'))
 );
 ```
 
-### 3.4 Lớp Query Functions — Ví dụ `db/tickets.js`
+---
 
-```javascript
-// db/tickets.js
-const db = require('./index.js');
+### Cấu trúc `lang/vi.json` (trích)
 
-const Tickets = {
-  /**
-   * Tạo ticket mới
-   * @param {Object} data
-   * @returns {Object} ticket vừa tạo
-   */
-  create(data) {
-    const stmt = db.prepare(`
-      INSERT INTO tickets (guildID, channelID, userID, ticketType, button, msgID,
-        questions, ticketCreationDate, identifier, status)
-      VALUES (@guildID, @channelID, @userID, @ticketType, @button, @msgID,
-        @questions, @ticketCreationDate, @identifier, 'open')
-    `);
-    const info = stmt.run({
-      ...data,
-      questions: JSON.stringify(data.questions || []),
-      ticketCreationDate: new Date().toISOString(),
-    });
-    return Tickets.findByChannelID(data.channelID);
-  },
-
-  findByChannelID(channelID) {
-    const row = db.prepare('SELECT * FROM tickets WHERE channelID = ?').get(channelID);
-    return row ? Tickets._parse(row) : null;
-  },
-
-  findOpenByUserID(userID, guildID) {
-    return db.prepare(
-      "SELECT * FROM tickets WHERE userID = ? AND guildID = ? AND status = 'open'"
-    ).all(userID, guildID).map(Tickets._parse);
-  },
-
-  updateByChannelID(channelID, updates) {
-    const fields = Object.keys(updates)
-      .map(k => `${k} = @${k}`)
-      .join(', ');
-    db.prepare(`UPDATE tickets SET ${fields}, updatedAt = datetime('now') WHERE channelID = @channelID`)
-      .run({ ...updates, channelID });
-  },
-
-  deleteByChannelID(channelID) {
-    db.prepare('DELETE FROM tickets WHERE channelID = ?').run(channelID);
-  },
-
-  /** Parse JSON fields từ TEXT columns */
-  _parse(row) {
-    if (!row) return null;
-    return {
-      ...row,
-      questions: JSON.parse(row.questions || '[]'),
-      participants: JSON.parse(row.participants || '[]'),
-      claimed: Boolean(row.claimed),
-      archived: Boolean(row.archived),
-      inactivityWarningSent: Boolean(row.inactivityWarningSent),
-    };
-  }
-};
-
-module.exports = Tickets;
-```
-
-### 3.5 Migration Script MongoDB → SQLite
-
-```javascript
-// scripts/migrate-mongo-to-sqlite.js
-// Chạy một lần: node scripts/migrate-mongo-to-sqlite.js
-
-const mongoose = require('mongoose');
-const db = require('../db/index.js');
-const Tickets = require('../db/tickets.js');
-// ... import các model Mongoose cũ
-
-async function migrate() {
-  console.log('Bắt đầu migration MongoDB → SQLite...');
-  await mongoose.connect(process.env.MONGO_URI);
-
-  // 1. Migrate tickets
-  const tickets = await OldTicketModel.find({});
-  const insertTicket = db.transaction((tickets) => {
-    for (const t of tickets) {
-      Tickets.create({
-        guildID: t.guildID,
-        channelID: t.channelID,
-        userID: t.userID,
-        // ... map các field
-        questions: t.questions || [],
-        participants: t.participants || [],
-      });
+```json
+{
+  "ticket": {
+    "created": { "title": "Ticket Đã Tạo", "msg": "Ticket của bạn đã được tạo tại" },
+    "close": {
+      "button": "Đóng Ticket",
+      "title": "Nhật ký Ticket | Ticket Đã Đóng",
+      "deleting": "Đang xóa ticket sau {time} giây",
+      "autoClose": "Tự động đóng do không hoạt động"
+    },
+    "claim": {
+      "button": "Nhận ticket",
+      "unclaimButton": "Trả ticket",
+      "claimed": "Ticket này đã được nhận bởi {user}\nHọ sẽ hỗ trợ bạn ngay!"
+    },
+    "blacklist": {
+      "blacklistedTitle": "Bị Chặn",
+      "blacklistedMsg": "Bạn đã bị chặn tạo ticket!"
     }
-  });
-  insertTicket(tickets);
-  console.log(`✅ Migrated ${tickets.length} tickets`);
-
-  // 2. Migrate guild stats, staff stats, reviews, blacklist...
-  // (tương tự pattern trên)
-
-  await mongoose.disconnect();
-  console.log('Migration hoàn tất!');
+  },
+  "review": {
+    "totalReviews": "Tổng đánh giá:",
+    "averageRating": "Đánh giá trung bình:",
+    "thankYou": "Cảm ơn bạn đã để lại đánh giá!"
+  },
+  "stats": {
+    "totalTickets": "Tổng Ticket:",
+    "openTickets": "Ticket Đang Mở:",
+    "guildStats": "Thống kê Server"
+  },
+  "suggestion": {
+    "submit": "Đề xuất của bạn đã được gửi, cảm ơn!",
+    "newTitle": "💡 Đề xuất mới"
+  }
 }
-
-migrate().catch(console.error);
 ```
 
-**Lưu ý quan trọng về better-sqlite3 và Event Loop:**
+## Correctness Properties
+
+### Property 1: Tính nhất quán của i18n
+
+Với mọi key `k` tồn tại trong `vi.json`, hàm `t(k)` không bao giờ trả về `undefined` hoặc `null`:
 
 ```javascript
-// ❌ KHÔNG làm thế này trong hot path (messageCreate event với hàng nghìn msg/s)
-client.on('messageCreate', (msg) => {
-  const allTickets = db.prepare('SELECT * FROM tickets').all(); // scan toàn bộ bảng
+// fast-check property test
+fc.assert(fc.property(
+  fc.constantFrom(...Object.keys(flattenKeys(viJson))),
+  (key) => {
+    const result = t(key);
+    return typeof result === 'string' && result.length > 0;
+  }
+));
+```
+
+### Property 2: Tính idempotent của setConfig/getConfig
+
+Với mọi cặp `(key, value)` hợp lệ, `setConfig(k, v)` rồi `getConfig(k)` luôn trả về `v`:
+
+```javascript
+fc.assert(fc.property(
+  fc.string({ minLength: 1 }),
+  fc.oneof(fc.string(), fc.integer(), fc.boolean()),
+  (key, value) => {
+    setConfig(key, value);
+    return JSON.stringify(getConfig(key)) === JSON.stringify(value);
+  }
+));
+```
+
+### Property 3: Tính nhất quán của Tickets CRUD
+
+Với mọi ticket data hợp lệ, sau khi `create()` thì `findByChannelID()` trả về đúng object:
+
+```javascript
+fc.assert(fc.property(
+  fc.record({
+    guildID: fc.string({ minLength: 1 }),
+    channelID: fc.uuid(),
+    userID: fc.string({ minLength: 1 }),
+  }),
+  (data) => {
+    const ticket = Tickets.create(data);
+    const found = Tickets.findByChannelID(data.channelID);
+    return found !== null && found.channelID === data.channelID;
+  }
+));
+```
+
+### Property 4: Tính toàn vẹn của JSON serialization
+
+Với mọi mảng `questions[]` hoặc `participants[]`, sau khi lưu vào SQLite và đọc lại, dữ liệu không bị mất:
+
+```javascript
+fc.assert(fc.property(
+  fc.array(fc.record({ customId: fc.string(), question: fc.string() })),
+  (questions) => {
+    const channelID = randomUUID();
+    Tickets.create({ ..., channelID, questions });
+    const found = Tickets.findByChannelID(channelID);
+    return JSON.stringify(found.questions) === JSON.stringify(questions);
+  }
+));
+```
+
+### Property 5: Tính đúng đắn của đếm ticket mở
+
+`countOpenByGuild(guildID)` luôn bằng số lượng ticket có `status = 'open'` trong guild đó:
+
+```javascript
+// Invariant: countOpenByGuild(g) === findOpenByUserID(*, g).length (tổng tất cả users)
+const count = Tickets.countOpenByGuild(guildID);
+const allOpen = db.prepare(
+  "SELECT COUNT(*) as c FROM tickets WHERE guildID = ? AND status = 'open'"
+).get(guildID).c;
+assert(count === allOpen);
+```
+
+## Error Handling
+
+### Lỗi 1: Key i18n không tồn tại
+
+**Điều kiện:** `t('key.khong.ton.tai')` được gọi với key không có trong `vi.json`
+
+**Phản hồi:** Trả về chính key đó dưới dạng string (không throw, không crash)
+
+**Phục hồi:** Log warning để phát hiện key bị thiếu trong quá trình dev
+
+```javascript
+function t(key, vars = {}) {
   // ...
-});
-
-// ✅ Dùng index, query có điều kiện cụ thể
-client.on('messageCreate', (msg) => {
-  const ticket = db.prepare(
-    'SELECT id, claimed, claimUser FROM tickets WHERE channelID = ? AND status = ?'
-  ).get(msg.channelId, 'open');
+  if (typeof value !== 'string') {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[i18n] Missing key: ${key}`);
+    }
+    return key; // fallback
+  }
   // ...
-});
-```
-
-Với `better-sqlite3` synchronous, các query đơn giản (< 1ms) không block event loop đáng kể. Chỉ cần tránh full-table scan trong event handlers tần suất cao.
-
----
-
-## Sơ đồ luồng chính: Tạo Ticket (sau refactor)
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant D as Discord
-    participant B as Bot (ticketCreate event)
-    participant DB as db/tickets.js
-    participant CFG as db/config.js
-    participant LANG as lang/vi.json
-
-    U->>D: Click nút tạo ticket
-    D->>B: interactionCreate
-    B->>CFG: getConfig('ticket.maxTickets')
-    CFG-->>B: 1
-    B->>DB: findOpenByUserID(userID, guildID)
-    DB-->>B: [] (chưa có ticket)
-    B->>DB: create({ guildID, channelID, userID, ... })
-    DB-->>B: newTicket
-    B->>LANG: t('ticket.created.title')
-    LANG-->>B: "Ticket Đã Tạo"
-    B->>D: Tạo channel + gửi embed tiếng Việt
-    D-->>U: Thông báo ticket đã tạo
+}
 ```
 
 ---
 
-## Cấu trúc thư mục sau refactor
+### Lỗi 2: Database không khởi động được
 
-```
-Heiznerd-TK2/
-├── config.yml              # Tối giản: Token, GuildID, DatabasePath
-├── index.js                # Entry point (không đổi nhiều)
-├── utils.js                # Bỏ Mongoose, dùng db/ layer
-├── lang/
-│   ├── index.js            # Helper t(), loadLang()
-│   └── vi.json             # Toàn bộ chuỗi tiếng Việt
-├── db/
-│   ├── index.js            # Khởi tạo better-sqlite3, chạy migrations
-│   ├── migrations.js       # Tạo bảng nếu chưa có
-│   ├── config.js           # getConfig(), setConfig()
-│   ├── tickets.js          # CRUD tickets
-│   ├── guild.js            # Guild stats
-│   ├── staffStats.js       # Staff statistics
-│   ├── reviews.js          # Ticket reviews
-│   ├── blacklist.js        # Blacklisted users
-│   ├── panels.js           # Ticket panels
-│   ├── categories.js       # Ticket categories (thay config.yml)
-│   ├── suggestions.js      # Suggestions
-│   ├── aiResponses.js      # AI auto responses
-│   ├── giveaways.js        # Giveaways (addon)
-│   ├── sticky.js           # Sticky messages (addon)
-│   └── invoices.js         # PayPal + Stripe invoices
-├── data/
-│   └── bot.db              # SQLite database file
-├── scripts/
-│   └── migrate-mongo-to-sqlite.js  # Migration script (optional)
-├── events/                 # Không đổi cấu trúc, chỉ thay import
-├── models/                 # Giữ lại để tham khảo, không dùng nữa
-├── slashCommands/
-│   ├── Tickets/            # Không đổi
-│   ├── General/            # Không đổi
-│   └── Utility/
-│       └── setup.js        # MỚI: lệnh /setup
-└── addons/
-    ├── Dashboard/
-    │   ├── dashboard.js    # Thêm res.locals.t = t
-    │   └── views/          # Thêm <%= t('...') %> vào EJS
-    ├── Giveaways/          # Thay GiveawayModel → db/giveaways.js
-    ├── StickyMessages/     # Thay StickyModel → db/sticky.js
-    └── Vouch/              # Thêm t() cho messages
+**Điều kiện:** File `bot.db` bị khóa, không có quyền ghi, hoặc đường dẫn không hợp lệ
+
+**Phản hồi:** Bot log lỗi rõ ràng và thoát với exit code 1
+
+**Phục hồi:** Kiểm tra `DatabasePath` trong `config.yml`, đảm bảo thư mục `data/` có quyền ghi
+
+```javascript
+// db/index.js
+let db;
+try {
+  db = new Database(dbPath);
+} catch (err) {
+  console.error(`[DB ERROR] Không thể mở database tại ${dbPath}:`, err.message);
+  process.exit(1);
+}
 ```
 
 ---
 
-## Chiến lược Testing
+### Lỗi 3: JSON parse lỗi trong TEXT column
+
+**Điều kiện:** Dữ liệu trong cột `questions` hoặc `participants` bị corrupt (không phải JSON hợp lệ)
+
+**Phản hồi:** Trả về mảng rỗng `[]` thay vì throw
+
+**Phục hồi:** Log warning với channelID để admin có thể kiểm tra
+
+```javascript
+_parse(row) {
+  if (!row) return null;
+  let questions = [];
+  try { questions = JSON.parse(row.questions || '[]'); }
+  catch { console.warn(`[DB] JSON parse lỗi cho ticket ${row.channelID}`); }
+  return { ...row, questions };
+}
+```
+
+---
+
+### Lỗi 4: Config key không tồn tại
+
+**Điều kiện:** `getConfig('key.chua.co')` được gọi trước khi `/setup` được chạy
+
+**Phản hồi:** Trả về `defaultValue` (mặc định `null`)
+
+**Phục hồi:** Mỗi lần đọc config nên truyền giá trị mặc định hợp lý
+
+```javascript
+const maxTickets = getConfig('ticket.maxTickets', 1); // fallback = 1
+```
+
+---
+
+### Lỗi 5: Migration thất bại giữa chừng
+
+**Điều kiện:** Kết nối MongoDB mất, hoặc SQLite đầy disk trong quá trình migration
+
+**Phản hồi:** Transaction rollback, không có dữ liệu nào bị ghi một phần
+
+**Phục hồi:** Chạy lại migration script (dùng `INSERT OR IGNORE` để bỏ qua bản ghi đã tồn tại)
+
+---
+
+### Lỗi 6: better-sqlite3 block event loop
+
+**Điều kiện:** Query nặng (full-table scan) chạy trong event handler tần suất cao (`messageCreate`)
+
+**Phản hồi:** Bot phản hồi chậm, Discord timeout interaction
+
+**Phục hồi:** Luôn dùng index và query có điều kiện cụ thể; tránh `SELECT *` không có `WHERE`
+
+```javascript
+// ❌ Tránh
+const all = db.prepare('SELECT * FROM tickets').all();
+
+// ✅ Dùng index
+const ticket = db.prepare(
+  'SELECT id, claimed, claimUser FROM tickets WHERE channelID = ? AND status = ?'
+).get(channelID, 'open');
+```
+
+## Testing Strategy
 
 ### Unit Testing
 
-- Test hàm `t()` với các key hợp lệ, key không tồn tại, biến thay thế
-- Test từng hàm trong `db/` layer với database in-memory (`:memory:`)
-- Test `getConfig()` / `setConfig()` với các kiểu dữ liệu khác nhau
+**Framework:** Jest hoặc Node.js built-in `node:test`
 
-### Integration Testing
+**Phạm vi:**
+- `lang/index.js`: Test `t()` với key hợp lệ, key không tồn tại, biến thay thế, key lồng nhau
+- `db/config.js`: Test `getConfig()` / `setConfig()` với string, number, boolean, object
+- `db/tickets.js`: Test CRUD với database in-memory (`:memory:`)
+- `db/staffStats.js`: Test serialize/deserialize JSON arrays (weekly, monthly, yearly)
 
-- Test luồng tạo ticket end-to-end với Discord.js mock
-- Test migration script với dữ liệu mẫu MongoDB
+**Ví dụ test:**
 
-### Property-Based Testing
+```javascript
+// tests/lang.test.js
+const { t, loadLang } = require('../lang/index.js');
 
-**Thư viện:** `fast-check`
+describe('t() helper', () => {
+  test('trả về chuỗi đúng cho key hợp lệ', () => {
+    expect(t('ticket.close.button')).toBe('Đóng Ticket');
+  });
 
-- **Thuộc tính 1:** Với mọi key hợp lệ trong `vi.json`, `t(key)` không bao giờ trả về `undefined`
-- **Thuộc tính 2:** Với mọi chuỗi `s`, `setConfig(k, s)` rồi `getConfig(k)` luôn trả về `s`
-- **Thuộc tính 3:** Với mọi ticket data hợp lệ, `Tickets.create(data)` rồi `Tickets.findByChannelID(data.channelID)` trả về object có cùng `channelID`
+  test('thay thế biến {time}', () => {
+    expect(t('ticket.close.deleting', { time: '5' })).toBe('Đang xóa ticket sau 5 giây');
+  });
+
+  test('fallback về key nếu không tìm thấy', () => {
+    expect(t('key.khong.ton.tai')).toBe('key.khong.ton.tai');
+  });
+});
+
+// tests/db-tickets.test.js
+const Database = require('better-sqlite3');
+const db = new Database(':memory:');
+// ... setup schema, test CRUD
+```
 
 ---
 
-## Phụ thuộc mới cần thêm
+### Property-Based Testing
+
+**Framework:** `fast-check`
+
+**Các property cần test:**
+
+1. `t(k)` không bao giờ trả về `undefined` với mọi key trong `vi.json`
+2. `setConfig(k, v)` → `getConfig(k)` luôn trả về `v` (idempotent)
+3. `Tickets.create(data)` → `findByChannelID(data.channelID)` luôn tìm thấy
+4. JSON arrays (questions, participants) không bị mất sau serialize/deserialize
+5. `countOpenByGuild()` luôn nhất quán với số bản ghi thực tế
+
+---
+
+### Integration Testing
+
+**Phạm vi:**
+- Luồng tạo ticket end-to-end với Discord.js mock
+- Luồng đóng ticket: cập nhật status, gửi DM, tạo transcript
+- Lệnh `/setup ticket maxtickets` → `getConfig('ticket.maxTickets')` trả về giá trị mới
+- Dashboard load trang với `res.locals.t` hoạt động đúng
+
+---
+
+### Kiểm tra thủ công
+
+- Chạy bot trên server test, tạo ticket và kiểm tra tất cả text hiển thị bằng tiếng Việt
+- Dùng `/setup` để thay đổi config và xác nhận thay đổi có hiệu lực ngay
+- Kiểm tra Dashboard: tất cả label, button, thông báo hiển thị tiếng Việt
+- Chạy migration script với dữ liệu MongoDB thật và so sánh số lượng bản ghi
+
+## Dependencies
+
+### Thêm mới
 
 | Package | Phiên bản | Lý do |
 |---------|-----------|-------|
-| `better-sqlite3` | `^9.4.3` | Thay thế Mongoose |
+| `better-sqlite3` | `^9.4.3` | Thay thế Mongoose, synchronous API |
+| `connect-sqlite3` | `^0.9.15` | Session store cho Express Dashboard (thay connect-mongo) |
 
-## Phụ thuộc cần xóa
+### Xóa bỏ
 
 | Package | Lý do |
 |---------|-------|
 | `mongoose` | Thay bằng better-sqlite3 |
-| `connect-mongo` | Session store MongoDB, thay bằng `connect-sqlite3` hoặc `express-session` với SQLite |
+| `connect-mongo` | Session store MongoDB, thay bằng connect-sqlite3 |
+
+### Giữ nguyên
+
+Tất cả các package còn lại trong `package.json` hiện tại giữ nguyên phiên bản.
 
 ---
 
@@ -1009,7 +1040,8 @@ Heiznerd-TK2/
 
 | Rủi ro | Mức độ | Giảm thiểu |
 |--------|--------|------------|
-| Mất dữ liệu khi migration | Cao | Backup MongoDB trước, migration script có transaction |
+| Mất dữ liệu khi migration | Cao | Backup MongoDB trước; migration dùng transaction + `INSERT OR IGNORE` |
 | better-sqlite3 block event loop | Trung bình | Dùng index, tránh full-table scan trong hot path |
-| Key i18n bị thiếu | Thấp | Hàm `t()` fallback về key, dễ phát hiện khi test |
-| Config động không tương thích với code cũ | Trung bình | Wrapper `getConfig()` trả về cùng kiểu dữ liệu như config.yml cũ |
+| Key i18n bị thiếu | Thấp | `t()` fallback về key; dễ phát hiện khi test |
+| Config động không tương thích | Trung bình | `getConfig()` có `defaultValue`; wrapper tương thích với code cũ |
+| Dashboard session hỏng sau đổi store | Thấp | Người dùng chỉ cần đăng nhập lại một lần |

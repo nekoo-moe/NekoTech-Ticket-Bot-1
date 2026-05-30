@@ -1,0 +1,335 @@
+{
+  "ticket": {
+    "created": {
+      "title": "Ticket Đã Tạo",
+      "msg": "Ticket của bạn đã được tạo tại {channel}"
+    },
+    "close": {
+      "button": "Đóng Ticket",
+      "title": "Nhật ký Ticket | Ticket Đã Đóng",
+      "deleting": "Đang xóa ticket sau {time} giây...",
+      "autoClose": "Tự động đóng do không hoạt động",
+      "restrictClose": "Chỉ có nhân viên hỗ trợ mới có thể đóng ticket này!",
+      "reasonTitle": "Lý do đóng ticket",
+      "reasonPlaceholder": "Nhập lý do đóng ticket..."
+    },
+    "delete": {
+      "button": "Xóa Ticket",
+      "notAllowed": "Bạn không có quyền xóa ticket này!",
+      "forceDeleted": "Ticket đã bị xóa bởi {user}"
+    },
+    "reopen": {
+      "button": "Mở lại Ticket",
+      "reopenedBy": "Ticket đã được mở lại bởi {user}"
+    },
+    "transcript": {
+      "button": "Xem Transcript",
+      "title": "Transcript Ticket",
+      "description": "Transcript của ticket {identifier} đã được tạo.",
+      "footer": "Ticket #{identifier}",
+      "generationFailed": "Không thể tạo transcript cho ticket này.",
+      "error": "Đã xảy ra lỗi khi tạo transcript.",
+      "logTitle": "Nhật ký | Transcript Đã Tạo",
+      "details": "Transcript đã được tạo cho ticket {identifier}.",
+      "clickHere": "Nhấn vào đây để xem"
+    },
+    "claim": {
+      "button": "Nhận Ticket",
+      "unclaimButton": "Trả Ticket",
+      "claimed": "Ticket này đã được nhận bởi {user}\nHọ sẽ hỗ trợ bạn ngay!",
+      "unclaimed": "Ticket này đã được trả lại bởi {user}",
+      "claimedBy": "Nhận bởi:",
+      "notClaimed": "Ticket này chưa được nhận.",
+      "alreadyClaimed": "Ticket này đã được nhận rồi!",
+      "didntClaim": "Bạn chưa nhận ticket này!",
+      "restrictClaim": "Chỉ có nhân viên hỗ trợ mới có thể nhận ticket!",
+      "claimedTitle": "Nhật ký Ticket | Ticket Đã Được Nhận",
+      "unclaimedTitle": "Nhật ký Ticket | Ticket Đã Được Trả",
+      "claimedLog": "đã nhận ticket",
+      "unclaimedLog": "đã trả ticket",
+      "autoClaimedNote": "Ticket này đã được tự động nhận bởi {user}"
+    },
+    "blacklist": {
+      "blacklistedTitle": "Bị Chặn",
+      "blacklistedMsg": "Bạn đã bị chặn và không thể tạo ticket!",
+      "roleBlacklistedTitle": "Vai trò Bị Chặn",
+      "roleBlacklistedMsg": "Vai trò của bạn không được phép tạo ticket!"
+    },
+    "alreadyOpen": {
+      "title": "Đã Có Ticket Mở",
+      "msg": "Bạn đã có ticket đang mở! Vui lòng sử dụng ticket hiện tại của bạn."
+    },
+    "cooldown": {
+      "title": "Vui lòng chờ!",
+      "msg": "Bạn phải chờ trước khi tạo ticket mới. Thử lại sau {time}."
+    },
+    "add": {
+      "title": "Nhật ký Ticket | Người Dùng Đã Thêm",
+      "userAdded": "{user} đã được thêm vào ticket."
+    },
+    "remove": {
+      "title": "Nhật ký Ticket | Người Dùng Đã Xóa",
+      "userRemoved": "{user} đã bị xóa khỏi ticket."
+    },
+    "rename": {
+      "title": "Nhật ký Ticket | Ticket Đã Đổi Tên",
+      "renamed": "Ticket đã được đổi tên thành `{name}`",
+      "oldName": "Tên cũ:",
+      "newName": "Tên mới:",
+      "details": "Chi tiết đổi tên"
+    },
+    "pin": {
+      "pinned": "Ticket này đã được ghim!",
+      "alreadyPinned": "Ticket này đã được ghim rồi!"
+    },
+    "priority": {
+      "set": "Độ ưu tiên của ticket đã được đặt thành **{priority}**"
+    },
+    "alert": {
+      "title": "⏳ Cảnh báo Không Hoạt Động",
+      "msg": "Ticket này đã không hoạt động trong ``{inactive-time}`` và sẽ tự động đóng vào **{time}** nếu không có phản hồi.\n\nNếu bạn phản hồi ticket này, việc tự động đóng sẽ bị hủy.\n\nHoặc bạn có thể nhấn nút bên dưới để đóng ticket ngay lập tức.",
+      "dmMsg": "## ⏳ Cảnh báo Không Hoạt Động\nTicket của bạn trong ``{server}`` đã không hoạt động trong ``{inactive-time}`` và sẽ tự động đóng vào **{time}** nếu không có phản hồi.\n\nNếu bạn phản hồi ticket, việc tự động đóng sẽ bị hủy."
+    },
+    "overload": {
+      "warning": "## ⚠️ Lượng ticket cao!\nDo có nhiều ticket đang mở, thời gian phản hồi có thể lâu hơn bình thường.\nChúng tôi trân trọng sự kiên nhẫn của bạn và sẽ hỗ trợ bạn sớm nhất có thể!\nCảm ơn bạn đã thông cảm."
+    },
+    "workingHours": {
+      "title": "Ngoài Giờ Làm Việc",
+      "msg": "Bạn chỉ có thể tạo ticket trong giờ làm việc!\n\nLịch làm việc:\nThứ Hai: {startTime-Monday} đến {endTime-Monday}\nThứ Ba: {startTime-Tuesday} đến {endTime-Tuesday}\nThứ Tư: {startTime-Wednesday} đến {endTime-Wednesday}\nThứ Năm: {startTime-Thursday} đến {endTime-Thursday}\nThứ Sáu: {startTime-Friday} đến {endTime-Friday}\nThứ Bảy: {startTime-Saturday} đến {endTime-Saturday}\nChủ Nhật: {startTime-Sunday} đến {endTime-Sunday}",
+      "noticeMsg": "Bạn đã tạo ticket ngoài giờ làm việc, vui lòng lưu ý rằng thời gian phản hồi có thể bị chậm hơn. {startTime-currentDay} đến {endTime-currentDay}"
+    },
+    "requiredRole": {
+      "title": "Thiếu Vai Trò Yêu Cầu",
+      "msg": "Bạn cần có vai trò **{role}** để tạo ticket trong danh mục này!"
+    },
+    "select": {
+      "category": "Chọn một danh mục để tạo ticket..."
+    },
+    "questions": {
+      "answering": "Đang trả lời câu hỏi...",
+      "success": "Câu trả lời của bạn đã được ghi lại!",
+      "notAnswered": "Chưa trả lời"
+    },
+    "noPerms": "Bạn không có quyền thực hiện hành động này!",
+    "notInTicket": "Lệnh này chỉ có thể dùng trong kênh ticket!",
+    "userLeft": {
+      "title": "Người Dùng Đã Rời Server",
+      "description": "Người tạo ticket **{user}** đã rời khỏi server."
+    }
+  },
+  "logs": {
+    "ticketAuthor": "Người tạo ticket:",
+    "closedBy": "Đóng bởi:",
+    "deletedBy": "Xóa bởi:",
+    "executor": "Người thực hiện:",
+    "ticket": "Ticket:",
+    "user": "Người dùng:",
+    "totalMessages": "Tổng tin nhắn:",
+    "category": "Danh mục:",
+    "details": "Chi tiết ticket",
+    "participants": "Người tham gia",
+    "claimDetails": "Chi tiết nhận ticket",
+    "unclaimDetails": "Chi tiết trả ticket",
+    "renameDetails": "Chi tiết đổi tên"
+  },
+  "dm": {
+    "close": {
+      "msg": "> Ticket của bạn đã được đóng trong ``{guildName}``",
+      "ticketInfo": "Thông tin Ticket",
+      "category": "Danh mục:",
+      "closedBy": "Đóng bởi:",
+      "claimedBy": "Nhận bởi:",
+      "notClaimed": "Không có",
+      "closeReason": "Lý do đóng:",
+      "participants": "Người tham gia:"
+    }
+  },
+  "review": {
+    "prompt": "> Chúng tôi trân trọng phản hồi của bạn và muốn biết đánh giá của bạn về dịch vụ hỗ trợ.\n> Vui lòng dành một chút thời gian để chia sẻ mức độ hài lòng bằng cách chọn đánh giá từ **1-5** sao bên dưới.",
+    "rated": "> Bạn đã đánh giá ticket này: {star} ({rating}/5)",
+    "reviewed": "> Bạn đã đánh giá ticket này: {star} ({rating}/5)\n> Nhận xét của bạn: {reviewMessage}",
+    "thankYou": "Cảm ơn bạn đã để lại đánh giá!",
+    "select": "Chọn đánh giá của bạn...",
+    "whyModal": "Giải thích lý do đánh giá",
+    "whyPlaceholder": "Nhập nhận xét của bạn...",
+    "totalReviews": "Tổng đánh giá:",
+    "averageRating": "Đánh giá trung bình:",
+    "requirements": {
+      "notEnoughMessages": "Ticket này chưa đủ tin nhắn để đánh giá."
+    }
+  },
+  "stats": {
+    "title": "Thống kê Server",
+    "totalTickets": "Tổng Ticket:",
+    "openTickets": "Ticket Đang Mở:",
+    "totalClaims": "Tổng Lần Nhận:",
+    "totalMessages": "Tổng Tin Nhắn:",
+    "averageRating": "Đánh giá TB:",
+    "averageCompletion": "Thời gian hoàn thành TB:",
+    "averageResponse": "Thời gian phản hồi TB:"
+  },
+  "staffStats": {
+    "title": "Thống kê Nhân Viên",
+    "leaderboard": "Bảng Xếp Hạng Nhân Viên",
+    "noStats": "Không tìm thấy thống kê cho nhân viên này.",
+    "totalMessages": "Tổng tin nhắn:",
+    "totalClaims": "Tổng lần nhận:",
+    "totalClosed": "Tổng ticket đã đóng:",
+    "avgResponse": "Thời gian phản hồi TB:",
+    "avgRating": "Đánh giá TB:",
+    "lastActive": "Hoạt động lần cuối:",
+    "weekly": "Tuần này",
+    "monthly": "Tháng này",
+    "yearly": "Năm này",
+    "lifetime": "Toàn thời gian"
+  },
+  "blacklist": {
+    "alreadyBlacklisted": "Người dùng này đã bị chặn rồi!",
+    "successBlacklisted": "Đã chặn người dùng **{user}** thành công!",
+    "notBlacklisted": "Người dùng này chưa bị chặn!",
+    "successUnblacklisted": "Đã bỏ chặn người dùng **{user}** thành công!",
+    "title": "Quản lý Danh sách Chặn"
+  },
+  "suggestion": {
+    "submit": "Đề xuất của bạn đã được gửi, cảm ơn!",
+    "title": "Đề xuất mới",
+    "statsTitle": "Thống kê Đề xuất",
+    "total": "Tổng đề xuất:",
+    "totalUpvotes": "Tổng lượt thích:",
+    "totalDownvotes": "Tổng lượt không thích:",
+    "info": "Thông tin đề xuất",
+    "upvotes": "Lượt thích:",
+    "downvotes": "Lượt không thích:",
+    "from": "Từ:",
+    "status": "Trạng thái:",
+    "newTitle": "💡 Đề xuất mới",
+    "voteResetTitle": "Đặt lại phiếu bầu",
+    "voteReset": "Phiếu bầu của bạn đã được đặt lại.",
+    "noVoteTitle": "Chưa bầu",
+    "noVote": "Bạn chưa bầu cho đề xuất này!",
+    "downvotedTitle": "Đã không thích",
+    "downvoted": "Bạn đã không thích đề xuất này.",
+    "alreadyVotedTitle": "Đã bầu rồi",
+    "alreadyVoted": "Bạn đã bầu cho đề xuất này rồi!",
+    "upvotedTitle": "Đã thích",
+    "upvoted": "Bạn đã thích đề xuất này.",
+    "acceptedTitle": "Đề xuất Được Chấp Nhận",
+    "accepted": "Đề xuất này đã được chấp nhận!",
+    "deniedTitle": "Đề xuất Bị Từ Chối",
+    "denied": "Đề xuất này đã bị từ chối.",
+    "noPerms": "Bạn không có quyền chấp nhận/từ chối đề xuất!",
+    "cantVoteTitle": "Không thể bầu",
+    "cantVote": "Bạn không thể bầu cho đề xuất của chính mình!"
+  },
+  "payment": {
+    "paypal": {
+      "logTitle": "Nhật ký | Hóa đơn PayPal",
+      "msg": "Hóa đơn PayPal đã được gửi đến {user}",
+      "user": "Người dùng:",
+      "price": "Giá:",
+      "service": "Dịch vụ:",
+      "payButton": "Thanh toán qua PayPal"
+    },
+    "stripe": {
+      "logTitle": "Nhật ký | Hóa đơn Stripe"
+    },
+    "crypto": {
+      "logTitle": "Nhật ký | Thanh toán Crypto",
+      "qrCode": "Mã QR"
+    },
+    "notInTicket": "Lệnh này chỉ có thể dùng trong kênh ticket!"
+  },
+  "archive": {
+    "title": "🗃️ Ticket Đã Lưu Trữ",
+    "description": "> Ticket này đã được lưu trữ và chỉ nhân viên hỗ trợ mới có thể truy cập.\n> Sử dụng các nút bên dưới để quản lý ticket này.",
+    "reopenTitle": "🔓 Ticket Đã Mở Lại",
+    "reopenDescription": "> Ticket này đã được mở lại và đang hoạt động trở lại.",
+    "deleteConfirmTitle": "⚠️ Xác nhận Xóa",
+    "deleteConfirmDescription": "> Bạn có chắc chắn muốn xóa vĩnh viễn ticket này không?\n> Hành động này không thể hoàn tác và sẽ gửi transcript/đánh giá đến người dùng.",
+    "archiveButton": "Lưu trữ",
+    "reopenButton": "Mở lại",
+    "deleteButton": "Xóa Ticket",
+    "confirmDeleteButton": "Xác nhận Xóa",
+    "cancelButton": "Hủy"
+  },
+  "inactivity": {
+    "warning": "## ⚠️ Cảnh báo Không Hoạt Động\n- **Ticket:** [Nhấn vào đây]({ticketLink}) ({channel})\n- **Tạo lúc:** {ticketCreationDate}\n- **Chưa được trả lời trong:** {unrespondedDuration}\n\nTicket này đã chờ phản hồi từ nhân viên trong thời gian dài. Vui lòng ưu tiên xử lý ticket này."
+  },
+  "help": {
+    "title": "Danh sách Lệnh",
+    "description": "Dưới đây là tất cả các lệnh có sẵn:"
+  },
+  "ping": {
+    "title": "🏓 Pong!",
+    "latency": "Độ trễ API:",
+    "botLatency": "Độ trễ Bot:"
+  },
+  "setup": {
+    "title": "⚙️ Cài đặt Bot",
+    "updated": "✅ Đã cập nhật **{key}** thành `{value}`",
+    "noPerms": "Bạn cần quyền Quản trị viên để dùng lệnh này!",
+    "category": {
+      "created": "✅ Đã tạo danh mục **{name}** thành công!",
+      "updated": "✅ Đã cập nhật danh mục **{name}** thành công!",
+      "deleted": "✅ Đã xóa danh mục **{name}** thành công!",
+      "notFound": "❌ Không tìm thấy danh mục với ID `{id}`!",
+      "list": "📋 Danh sách danh mục ticket"
+    },
+    "panel": {
+      "created": "✅ Đã tạo panel **{name}** thành công!",
+      "sent": "✅ Đã gửi panel đến {channel}!",
+      "notFound": "❌ Không tìm thấy panel với ID `{id}`!"
+    }
+  },
+  "errors": {
+    "generic": "Đã xảy ra lỗi. Vui lòng thử lại sau.",
+    "noPermission": "Bạn không có quyền thực hiện hành động này!",
+    "notFound": "Không tìm thấy dữ liệu yêu cầu.",
+    "dbError": "Lỗi cơ sở dữ liệu. Vui lòng liên hệ quản trị viên."
+  },
+  "buttons": {
+    "close": "Đóng Ticket",
+    "claim": "Nhận Ticket",
+    "unclaim": "Trả Ticket",
+    "delete": "Xóa Ticket",
+    "reopen": "Mở lại",
+    "transcript": "Xem Transcript",
+    "cancelClosure": "Hủy Đóng"
+  },
+  "dashboard": {
+    "title": "Bảng Điều Khiển",
+    "home": {
+      "title": "Trang Chủ",
+      "welcome": "Chào mừng đến với bảng điều khiển!"
+    },
+    "tickets": {
+      "title": "Quản lý Ticket",
+      "open": "Ticket Đang Mở",
+      "closed": "Ticket Đã Đóng",
+      "all": "Tất cả Ticket"
+    },
+    "reviews": {
+      "title": "Đánh giá"
+    },
+    "blacklist": {
+      "title": "Danh sách Chặn"
+    },
+    "statistics": {
+      "title": "Thống kê"
+    },
+    "login": {
+      "title": "Đăng nhập",
+      "button": "Đăng nhập với Discord",
+      "noAccess": "Bạn không có quyền truy cập bảng điều khiển này."
+    },
+    "logout": "Đăng xuất",
+    "nav": {
+      "home": "Trang Chủ",
+      "tickets": "Ticket",
+      "reviews": "Đánh giá",
+      "blacklist": "Danh sách Chặn",
+      "statistics": "Thống kê",
+      "settings": "Cài đặt"
+    }
+  }
+}

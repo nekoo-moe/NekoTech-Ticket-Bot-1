@@ -2,8 +2,9 @@ const { Discord, StringSelectMenuBuilder, EmbedBuilder, ActionRowBuilder, TextIn
 const fs = require('fs');
 const yaml = require("js-yaml")
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
-const guildModel = require("../models/guildModel");
-const ticketModel = require("../models/ticketModel");
+const Guild   = require("../db/guild");
+const Tickets = require("../db/tickets");
+const { getConfig } = require("../db/config");
 const { incrementStat } = require("../staffStats.js");
 const moment = require('moment-timezone');
 
@@ -13,29 +14,28 @@ const SECOND_UPDATE_DELAY = 5000; // Delay for second update regardless of error
 
 module.exports = async (client, interaction, channel, buttonConfig) => {
     try {
-        const ticket = await ticketModel.findOne({ channelID: channel.id });
+        const ticket = Tickets.findByChannelID(channel.id);
         if (!ticket) {
             console.error('No ticket found for channel:', channel.id);
             return;
         }
 
-        // Add 1 to globalStats.totalTickets
-        const statsDB = await guildModel.findOne({ guildID: config.GuildID });
-        statsDB.totalTickets++;
-        await statsDB.save();
+        // Tăng totalTickets
+        Guild.increment(config.GuildID, 'totalTickets');
 
-        // Sync globalStats.openTickets
-        const openNow = await ticketModel.countDocuments({ status: 'Open', guildID: config.GuildID });
-        if (statsDB.openTickets !== openNow) {
-            statsDB.openTickets = openNow;
-            await statsDB.save();
-        }
+        // Sync openTickets
+        const openNow = Guild.syncOpenTickets(config.GuildID);
 
-        // Handle ticket overload warning if enabled
-        if (config.TicketOverload?.Enabled && openNow >= config.TicketOverload.Threshold) {
+        // Cảnh báo overload
+        const overloadEnabled   = getConfig('overload.enabled', true);
+        const overloadThreshold = getConfig('overload.threshold', 20);
+        const overloadMsg       = getConfig('overload.warningMessage',
+          '## ⚠️ Lượng ticket cao!\nThời gian phản hồi có thể lâu hơn bình thường.');
+
+        if (overloadEnabled && openNow >= overloadThreshold) {
             const overloadEmbed = new EmbedBuilder()
                 .setColor("Yellow")
-                .setDescription(config.TicketOverload.WarningMessage)
+                .setDescription(overloadMsg)
                 .setFooter({
                     text: interaction.user.username,
                     iconURL: interaction.user.displayAvatarURL({ format: 'png', dynamic: true, size: 1024 }),
@@ -45,14 +45,14 @@ module.exports = async (client, interaction, channel, buttonConfig) => {
             await channel.send({ embeds: [overloadEmbed] }).catch(console.error);
         }
 
-        await handleWorkingHoursNotice(client, interaction, channel, config);
+        await handleWorkingHoursNotice(client, interaction, channel);
 
         if (!ticket.questions?.length) return;
 
-        await updateTicketMessage(channel, ticket, interaction, config);
+        await updateTicketMessage(channel, ticket, interaction);
         
         setTimeout(async () => {
-            await updateTicketMessage(channel, ticket, interaction, config);
+            await updateTicketMessage(channel, ticket, interaction);
         }, SECOND_UPDATE_DELAY);
 
     } catch (error) {
@@ -60,8 +60,16 @@ module.exports = async (client, interaction, channel, buttonConfig) => {
     }
 };
 
-async function updateTicketMessage(channel, ticket, interaction, config) {
-    try {
+async function updateTicketMessage(channel, ticket, interaction) {
+    const config = require('../db/config');
+    const formatting = {
+      QuestionPrefix:       config.getConfig('ticket.questionFormatting.prefix', '`❓`'),
+      QuestionStyle:        config.getConfig('ticket.questionFormatting.questionStyle', 'Bold'),
+      AnswerStyle:          config.getConfig('ticket.questionFormatting.answerStyle', 'CodeBlock'),
+      NotAnsweredText:      config.getConfig('ticket.questionFormatting.notAnsweredText', 'Chưa trả lời'),
+      DisplaySideBySide:    config.getConfig('ticket.questionFormatting.displaySideBySide', false),
+      AddSpaceBetweenQuestions: false,
+    };
         const ticketMessage = await channel.messages.fetch(ticket.msgID);
         if (!ticketMessage) {
             console.error('Could not find original ticket message');
@@ -251,7 +259,7 @@ async function updateTicketMessageWithRetry(channel, ticket, interaction, config
         
         if (retryCount < MAX_RETRIES - 1) {
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-            return updateTicketMessageWithRetry(channel, ticket, interaction, config, retryCount + 1);
+            return updateTicketMessageWithRetry(channel, ticket, interaction, retryCount + 1);
         } else {
             console.error('Failed to update ticket message after all retry attempts');
             return false;
@@ -259,115 +267,92 @@ async function updateTicketMessageWithRetry(channel, ticket, interaction, config
     }
 }
 
-// Working hours notice function for allowed tickets
-async function handleWorkingHoursNotice(client, interaction, channel, config) {
-  if (!config.WorkingHours?.Enabled || !config.WorkingHours.AllowTicketsOutsideWorkingHours || !config.WorkingHours.SendNoticeInTicket) {
-      return;
-  }
+// Cập nhật working hours để dùng getConfig thay vì config.yml
+async function handleWorkingHoursNotice(client, interaction, channel) {
+  const { getConfig } = require('../db/config');
+  const { t }         = require('../lang/index');
+  const whEnabled = getConfig('workingHours.enabled', true);
+  const whAllow   = getConfig('workingHours.allowOutside', false);
+  const whNotice  = getConfig('workingHours.sendNotice', true);
+  if (!whEnabled || !whAllow || !whNotice) return;
 
-  let userIsExempt = false;
-  
-  if (config.WorkingHours.ExemptRoles && Array.isArray(config.WorkingHours.ExemptRoles) && config.WorkingHours.ExemptRoles.length > 0) {
-    const userRoles = interaction.member.roles.cache.map(role => role.id);
-    userIsExempt = config.WorkingHours.ExemptRoles.some(exemptRoleId => userRoles.includes(exemptRoleId));
-  }
-  
-  if (userIsExempt) {
-    return;
+  const timezone    = getConfig('workingHours.timezone', 'Asia/Ho_Chi_Minh');
+  const exemptRoles = getConfig('workingHours.exemptRoles', []);
+  const schedule    = getConfig('workingHours.schedule', {});
+
+  if (exemptRoles.length > 0) {
+    const userRoles = interaction.member.roles.cache.map(r => r.id);
+    if (exemptRoles.some(id => userRoles.includes(id))) return;
   }
 
   const workingHoursRegex = /^(\d{1,2}:\d{2})-(\d{1,2}:\d{2})$/;
-        
-  const currentDay = moment().tz(config.WorkingHours.Timezone).format('dddd');
-  const workingHours = config.WorkingHours.Schedule[currentDay];
-  
-  const isDayDisabled = workingHours && 
-      (workingHours.toLowerCase() === "disabled" || 
-       workingHours.toLowerCase() === "off" ||
-       workingHours.toLowerCase() === "closed");
-  
-  let withinWorkingHours = false;
-  
-  if (isDayDisabled) {
-      withinWorkingHours = false;
-  } else if (!workingHours) {
-      console.log('\x1b[31m%s\x1b[0m', `[ERROR] Working hours not configured for ${currentDay}. Contact support and provide your config.yml file.`);
-      return;
-  } else {
-      const workingHoursMatch = workingHours.match(workingHoursRegex);
-      
-      if (!workingHoursMatch) {
-          console.log('\x1b[31m%s\x1b[0m', `[ERROR] Invalid working hours configuration for ${currentDay} (format). Contact support and provide your config.yml file.`);
-          return;
-      }
+  const currentDay   = moment().tz(timezone).format('dddd');
+  const workingHours = schedule[currentDay];
 
-      const currentTime = moment().tz(config.WorkingHours.Timezone);
-      const startDate = currentTime.format('YYYY-MM-DD');
-      
-      const startTime = moment.tz(startDate + ' ' + workingHoursMatch[1], 'YYYY-MM-DD H:mm', config.WorkingHours.Timezone);
-      const endTime = moment.tz(startDate + ' ' + workingHoursMatch[2], 'YYYY-MM-DD H:mm', config.WorkingHours.Timezone);
-      
-      if (!startTime.isValid() || !endTime.isValid() || startTime.isSameOrAfter(endTime)) {
-          console.log('\x1b[31m%s\x1b[0m', `[ERROR] Invalid working hours configuration for ${currentDay}. Contact support and provide your config.yml file.`);
-          return;
-      }
-      
-      withinWorkingHours = currentTime.isBetween(startTime, endTime);
+  const isDayDisabled = workingHours &&
+    ['disabled', 'off', 'closed'].includes(workingHours.toLowerCase());
+
+  let withinWorkingHours = false;
+
+  if (isDayDisabled) {
+    withinWorkingHours = false;
+  } else if (!workingHours) {
+    return;
+  } else {
+    const match = workingHours.match(workingHoursRegex);
+    if (!match) return;
+    const now       = moment().tz(timezone);
+    const dateStr   = now.format('YYYY-MM-DD');
+    const startTime = moment.tz(`${dateStr} ${match[1]}`, 'YYYY-MM-DD H:mm', timezone);
+    const endTime   = moment.tz(`${dateStr} ${match[2]}`, 'YYYY-MM-DD H:mm', timezone);
+    if (!startTime.isValid() || !endTime.isValid() || startTime.isSameOrAfter(endTime)) return;
+    withinWorkingHours = now.isBetween(startTime, endTime);
   }
 
   if (!withinWorkingHours) {
-      let workingHoursEmbedLocale = config.WorkingHours.outsideWorkingHoursMsg;
-      
-      if (isDayDisabled) {
-          workingHoursEmbedLocale = workingHoursEmbedLocale
-              .replace(/{startTime-currentDay} to {endTime-currentDay}/g, "Closed today")
-              .replace(/{startTime-currentDay}/g, "Closed")
-              .replace(/{endTime-currentDay}/g, "Closed");
+    let msg = t('ticket.workingHours.noticeMsg');
+
+    if (isDayDisabled) {
+      msg = msg.replace(/{startTime-currentDay} to {endTime-currentDay}/g, 'Đóng cửa hôm nay')
+               .replace(/{startTime-currentDay}/g, 'Đóng')
+               .replace(/{endTime-currentDay}/g, 'Đóng');
+    } else {
+      const match   = workingHours.match(workingHoursRegex);
+      const dateStr = moment().tz(timezone).format('YYYY-MM-DD');
+      const start   = moment.tz(`${dateStr} ${match[1]}`, 'YYYY-MM-DD H:mm', timezone);
+      const end     = moment.tz(`${dateStr} ${match[2]}`, 'YYYY-MM-DD H:mm', timezone);
+      msg = msg.replace(/{startTime-currentDay}/g, `<t:${start.unix()}:t>`)
+               .replace(/{endTime-currentDay}/g,   `<t:${end.unix()}:t>`);
+    }
+
+    for (const [day, hours] of Object.entries(schedule)) {
+      if (!hours) continue;
+      if (['disabled', 'off', 'closed'].includes(hours.toLowerCase())) {
+        msg = msg.replace(new RegExp(`{startTime-${day}} to {endTime-${day}}`, 'g'), 'Đóng')
+                 .replace(new RegExp(`{startTime-${day}}`, 'g'), 'Đóng')
+                 .replace(new RegExp(`{endTime-${day}}`, 'g'), 'Đóng');
       } else {
-          const workingHoursMatch = workingHours.match(workingHoursRegex);
-          const startDate = moment().tz(config.WorkingHours.Timezone).format('YYYY-MM-DD');
-          const startTime = moment.tz(startDate + ' ' + workingHoursMatch[1], 'YYYY-MM-DD H:mm', config.WorkingHours.Timezone);
-          const endTime = moment.tz(startDate + ' ' + workingHoursMatch[2], 'YYYY-MM-DD H:mm', config.WorkingHours.Timezone);
-          
-          workingHoursEmbedLocale = workingHoursEmbedLocale
-              .replace(/{startTime-currentDay}/g, `<t:${startTime.unix()}:t>`)
-              .replace(/{endTime-currentDay}/g, `<t:${endTime.unix()}:t>`);
+        const m = hours.match(workingHoursRegex);
+        if (m) {
+          const dateStr = moment().tz(timezone).format('YYYY-MM-DD');
+          const s = moment.tz(`${dateStr} ${m[1]}`, 'YYYY-MM-DD H:mm', timezone);
+          const e = moment.tz(`${dateStr} ${m[2]}`, 'YYYY-MM-DD H:mm', timezone);
+          msg = msg.replace(new RegExp(`{startTime-${day}}`, 'g'), `<t:${s.unix()}:t>`)
+                   .replace(new RegExp(`{endTime-${day}}`, 'g'), `<t:${e.unix()}:t>`);
+        }
       }
+    }
 
-      for (const day in config.WorkingHours.Schedule) {
-          const hours = config.WorkingHours.Schedule[day];
-          
-          if (hours && (hours.toLowerCase() === "disabled" || 
-                        hours.toLowerCase() === "off" || 
-                        hours.toLowerCase() === "closed")) {
-              workingHoursEmbedLocale = workingHoursEmbedLocale
-                  .replace(new RegExp(`{startTime-${day}} to {endTime-${day}}`, 'g'), "Closed")
-                  .replace(new RegExp(`{startTime-${day}}`, 'g'), "Closed")
-                  .replace(new RegExp(`{endTime-${day}}`, 'g'), "Closed");
-          } else if (hours) {
-              const match = hours.match(workingHoursRegex);
-              if (match) {
-                  const startDate = moment().tz(config.WorkingHours.Timezone).format('YYYY-MM-DD');
-                  const start = moment.tz(startDate + ' ' + match[1], 'YYYY-MM-DD H:mm', config.WorkingHours.Timezone);
-                  const end = moment.tz(startDate + ' ' + match[2], 'YYYY-MM-DD H:mm', config.WorkingHours.Timezone);
-                  
-                  workingHoursEmbedLocale = workingHoursEmbedLocale
-                      .replace(new RegExp(`{startTime-${day}}`, 'g'), `<t:${start.unix()}:t>`)
-                      .replace(new RegExp(`{endTime-${day}}`, 'g'), `<t:${end.unix()}:t>`);
-              }
-          }
-      }
+    const embed = new EmbedBuilder()
+      .setTitle(t('ticket.workingHours.title'))
+      .setColor('Red')
+      .setDescription(msg)
+      .setFooter({
+        text:    interaction.user.username,
+        iconURL: interaction.user.displayAvatarURL({ format: 'png', dynamic: true, size: 1024 }),
+      })
+      .setTimestamp();
 
-      let workingHoursEmbed = new EmbedBuilder()
-          .setTitle(config.WorkingHours.outsideWorkingHoursTitle)
-          .setColor("Red")
-          .setDescription(workingHoursEmbedLocale)
-          .setFooter({
-              text: `${interaction.user.username}`,
-              iconURL: `${interaction.user.displayAvatarURL({ format: 'png', dynamic: true, size: 1024 })}`
-          })
-          .setTimestamp();
-      
-      if (channel) channel.send({ embeds: [workingHoursEmbed] });
+    if (channel) channel.send({ embeds: [embed] });
   }
 }

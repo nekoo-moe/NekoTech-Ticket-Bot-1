@@ -2,17 +2,20 @@ const { Discord, ActionRowBuilder, ButtonBuilder, EmbedBuilder, StringSelectMenu
 const fs = require('fs');
 const yaml = require("js-yaml")
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
-const utils = require("../utils.js");
-const guildModel = require("../models/guildModel");
-const ticketModel = require("../models/ticketModel");
-const reviewsModel = require("../models/reviewsModel");
-const dashboardModel = require("../models/dashboardModel");
+const utils   = require("../utils.js");
+const { t }   = require("../lang/index");
+const { getConfig } = require("../db/config");
+const Guild   = require("../db/guild");
+const Tickets = require("../db/tickets");
+const Reviews = require("../db/reviews");
 const { incrementStat } = require("../staffStats.js");
 
 module.exports = async (client, interaction) => {
 
-  const ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
-  const dashboardDB = await dashboardModel.findOne({ guildID: config.GuildID });
+  const ticketDB    = Tickets.findByChannelID(interaction.channel.id);
+  const dashboardDB = require('../db/index').prepare(
+    'SELECT * FROM dashboard WHERE guildID = ?'
+  ).get(config.GuildID);
 
   async function CloseTicket() {
     let ticketAuthor = await client.users.cache.get(ticketDB.userID);
@@ -32,31 +35,31 @@ module.exports = async (client, interaction) => {
 
     const logEmbed = new EmbedBuilder()
       .setColor('#FF5D5D')
-      .setAuthor({ name: `${config.Locale.ticketCloseTitle}` })
+      .setAuthor({ name: t('ticket.close.title') })
       .setThumbnail(`https://cdn.discordapp.com/avatars/${ticketAuthor.id}/${ticketAuthor.avatar}.webp?size=240`)
       .setTimestamp();
 
     let mainContent = '';
 
-    mainContent += `> **${config.Locale.logsTicketAuthor}:** <@!${ticketAuthor.id}> \`${ticketAuthor.username}\`\n`;
+    mainContent += `> **${t('logs.ticketAuthor')}:** <@!${ticketAuthor.id}> \`${ticketAuthor.username}\`\n`;
 
     if (closeUserID) {
-      mainContent += `> **${config.Locale.logsClosedBy}:** <@!${closeUserID.id}> \`${closeUserID.username}\`\n`;
+      mainContent += `> **${t('logs.closedBy')}:** <@!${closeUserID.id}> \`${closeUserID.username}\`\n`;
     }
 
-    if (claimUser && config.ClaimingSystem.Enabled) {
-      mainContent += `> **${config.Locale.ticketClaimedBy}:** <@!${claimUser.id}> \`${claimUser.username}\`\n`;
+    if (claimUser && getConfig('claiming.enabled', true)) {
+      mainContent += `> **${t('ticket.claim.claimedBy')}:** <@!${claimUser.id}> \`${claimUser.username}\`\n`;
     }
 
-    mainContent += `> **${config.Locale.ticketCategory}:** \`${ticketDB.ticketType}\`\n`;
+    mainContent += `> **${t('logs.category')}:** \`${ticketDB.ticketType}\`\n`;
 
-    if (config.TicketSettings.TicketCloseReason && closeReason) {
-      mainContent += `> **${config.Locale.reason}:** ${closeReason}`;
+    if (getConfig('ticket.closeReason', false) && closeReason) {
+      mainContent += `> **${t('logs.reason')}:** ${closeReason}`;
     }
 
     logEmbed.addFields([
       {
-        name: `\`📋\` **${config.Locale.ticketDetails}**`,
+        name: `\`📋\` **${t('logs.details')}**`,
         value: mainContent
       }
     ]);
@@ -72,14 +75,14 @@ module.exports = async (client, interaction) => {
 
       logEmbed.addFields([
         {
-          name: `\`👥\` **${config.Locale.ticketParticipants}**`,
+          name: `\`👥\` **${t('logs.participants')}**`,
           value: participantsContent
         }
       ]);
     }
 
     logEmbed.setFooter({
-      text: `#${ticketDB.identifier} | ${config.Locale.totalMessagesLog} ${totalMessages}`,
+      text: `#${ticketDB.identifier} | ${t('logs.totalMessages')} ${totalMessages}`,
       iconURL: `https://cdn.discordapp.com/avatars/${ticketAuthor.id}/${ticketAuthor.avatar}.webp?size=16`
     });
 
@@ -97,10 +100,10 @@ module.exports = async (client, interaction) => {
       }
 
       if (meetsMessageRequirement && dashboardExists &&
-        config.TicketTranscriptSettings.TranscriptType === "HTML" &&
-        config.TicketTranscriptSettings.SaveInFolder === true) {
+        getConfig('transcript.type', 'HTML') === "HTML" &&
+        getConfig('transcript.saveInFolder', true) === true) {
         const viewTranscriptButton = new ButtonBuilder()
-          .setLabel(config.Locale.viewTranscriptButton)
+          .setLabel(t('ticket.transcript.button'))
           .setStyle('Link')
           .setURL(`${dashboardDB.url}/transcript?channelId=${ticketDB.channelID}&dateNow=${timestamp}`)
           .setEmoji('📝');
@@ -117,17 +120,17 @@ module.exports = async (client, interaction) => {
 
     client.emit('sendUserDM', ticketDB, attachment, closeLogMsgID, logsChannel.id, timestamp, meetsMessageRequirement);
 
-    let dTime = config.TicketSettings.DeleteTime * 1000
-    let deleteTicketCountdown = config.Locale.deletingTicketMsg.replace(/{time}/g, `${config.TicketSettings.DeleteTime}`);
+    let dTime = getConfig('ticket.deleteTime', 5) * 1000;
+    let deleteTicketCountdown = t('ticket.close.deleting', { time: String(getConfig('ticket.deleteTime', 5)) });
     const delEmbed = new EmbedBuilder()
       .setDescription(deleteTicketCountdown)
       .setColor("Red")
 
     const ticketDeleteButton = new ButtonBuilder()
       .setCustomId('closeTicket')
-      .setLabel(config.Locale.CloseTicketButton)
-      .setStyle(config.ButtonColors.closeTicket)
-      .setEmoji(config.ButtonEmojis.closeTicket)
+      .setLabel(t('buttons.close'))
+      .setStyle(getConfig('buttons.colors.closeTicket', 'Danger'))
+      .setEmoji(getConfig('buttons.emojis.closeTicket', '🔒'))
       .setDisabled(true)
 
     let row1 = new ActionRowBuilder().addComponents(ticketDeleteButton);

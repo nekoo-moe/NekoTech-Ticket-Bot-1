@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+// Giữ lại để tương thích với migration script
+// Trong runtime, dùng db/giveaways.js thay thế
 const GiveawaySchema = new mongoose.Schema({
   messageId: { type: String, required: true },
   channelId: { type: String, required: true },
@@ -13,4 +15,9 @@ const GiveawaySchema = new mongoose.Schema({
   minJoinDurationMs: { type: Number, default: 0 },
 });
 
-module.exports = mongoose.model('Giveaway', GiveawaySchema);
+// Export cả Mongoose model (cho migration) lẫn SQLite module (cho runtime)
+let mongoModel = null;
+try { mongoModel = mongoose.model('Giveaway', GiveawaySchema); } catch (_) {}
+
+module.exports = mongoModel;
+module.exports.SQLite = require('../../db/giveaways');

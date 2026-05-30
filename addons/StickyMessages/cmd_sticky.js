@@ -2,111 +2,97 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const Discord = require("discord.js");
 const fs = require('fs');
 const yaml = require("js-yaml");
-const StickyMessage = require('./StickyModel');
+const StickyDB = require('../../db/sticky');
 const config = yaml.load(fs.readFileSync('./addons/StickyMessages/config.yml', 'utf8'));
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('sticky')
-    .setDescription('Manage Sticky Messages')
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('create')
-        .setDescription('Create a sticky message in this channel')
-        .addStringOption(option => option.setName('msg').setDescription('Sticky message').setRequired(true))
+    .setDescription('Quản lý Sticky Messages')
+    .addSubcommand(sub =>
+      sub.setName('create').setDescription('Tạo sticky message trong kênh này')
+        .addStringOption(opt => opt.setName('msg').setDescription('Nội dung sticky message').setRequired(true))
     )
-    .addSubcommand(subcommand =>
-      subcommand.setName('delete').setDescription('Delete the sticky message in this channel')
+    .addSubcommand(sub =>
+      sub.setName('delete').setDescription('Xóa sticky message trong kênh này')
     )
-    .addSubcommand(subcommand =>
-      subcommand.setName('list').setDescription('List all active sticky messages')
+    .addSubcommand(sub =>
+      sub.setName('list').setDescription('Liệt kê tất cả sticky messages đang hoạt động')
     ),
+
   async execute(interaction, client) {
     if (!interaction.member.permissions.has('ManageMessages'))
-      return interaction.reply({ content: "You don't have permissions to use this command!", ephemeral: true });
+      return interaction.reply({ content: 'Bạn không có quyền dùng lệnh này!', ephemeral: true });
     if (config.Enabled === false)
-      return interaction.reply({ content: `This command has been disabled in the config!`, ephemeral: true });
+      return interaction.reply({ content: 'Lệnh này đã bị tắt trong config!', ephemeral: true });
 
-    let subCmd = interaction.options.getSubcommand();
+    const subCmd = interaction.options.getSubcommand();
 
     if (subCmd === 'create') {
-      if ((await StickyMessage.findOne({ channelId: interaction.channel.id })) !== null)
+      if (StickyDB.find(interaction.channel.id))
         return interaction.reply({
-          content: `There is already a sticky message in this channel! Delete the old one before creating a new one`,
+          content: 'Đã có sticky message trong kênh này! Xóa cái cũ trước khi tạo cái mới.',
           ephemeral: true,
         });
 
-      let msg = interaction.options.getString('msg');
+      const msg = interaction.options.getString('msg');
 
-        const embed = new Discord.EmbedBuilder()
-        if(config.EmbedSettings.Embed.Title) embed.setTitle(config.EmbedSettings.Embed.Title)
-        embed.setDescription(msg)
-        if(config.EmbedSettings.Embed.Color) embed.setColor(config.EmbedSettings.Embed.Color)
-        if(config.EmbedSettings.Embed.Image) embed.setImage(config.EmbedSettings.Embed.PanelImage)
-        if(config.EmbedSettings.Embed.CustomThumbnailURL) embed.setThumbnail(config.EmbedSettings.Embed.CustomThumbnailURL)
-        if(config.EmbedSettings.Embed.Footer.Enabled && config.EmbedSettings.Embed.Footer.text) embed.setFooter({ text: `${config.EmbedSettings.Embed.Footer.text}` })
-        if(config.EmbedSettings.Embed.Footer.Enabled && config.EmbedSettings.Embed.Footer.text && config.EmbedSettings.Embed.Footer.CustomIconURL) ticketEmbed.setFooter({ text: `${config.EmbedSettings.Embed.Footer.text}`, iconURL: `${config.EmbedSettings.Embed.Footer.CustomIconURL}` })
-        if(config.EmbedSettings.Embed.Timestamp) embed.setTimestamp()
+      const embed = new Discord.EmbedBuilder();
+      if (config.EmbedSettings?.Embed?.Title)  embed.setTitle(config.EmbedSettings.Embed.Title);
+      embed.setDescription(msg);
+      if (config.EmbedSettings?.Embed?.Color)  embed.setColor(config.EmbedSettings.Embed.Color);
+      if (config.EmbedSettings?.Embed?.Timestamp) embed.setTimestamp();
+      if (config.EmbedSettings?.Embed?.Footer?.Enabled && config.EmbedSettings.Embed.Footer.text) {
+        embed.setFooter({ text: config.EmbedSettings.Embed.Footer.text });
+      }
 
-      await StickyMessage.create({
-        channelId: interaction.channel.id,
-        message: msg,
-        msgCount: 0,
-      });
+      StickyDB.upsert(interaction.channel.id, msg);
 
-      interaction.reply({ content: `You have successfully set a sticky message in this channel!`, ephemeral: true });
-      if(config.EnableEmbeds === false) interaction.channel.send(`${config.StickiedMessageTitle}\n\n${msg}`)
-      if(config.EnableEmbeds === true) interaction.channel.send({ embeds: [embed] })
-
+      interaction.reply({ content: 'Đã tạo sticky message thành công!', ephemeral: true });
+      if (config.EnableEmbeds === false) interaction.channel.send(`${config.StickiedMessageTitle}\n\n${msg}`);
+      if (config.EnableEmbeds === true)  interaction.channel.send({ embeds: [embed] });
       if (config.EnableSlowmode) interaction.channel.setRateLimitPerUser(config.SlowmodeDelay);
+
     } else if (subCmd === 'delete') {
-      const stickyMessage = await StickyMessage.findOne({ channelId: interaction.channel.id });
-
+      const stickyMessage = StickyDB.find(interaction.channel.id);
       if (!stickyMessage)
-        return interaction.reply({ content: `There is no sticky message in this channel!`, ephemeral: true });
+        return interaction.reply({ content: 'Không có sticky message trong kênh này!', ephemeral: true });
 
-        await StickyMessage.findOneAndDelete({ channelId: interaction.channel.id });
+      StickyDB.delete(interaction.channel.id);
 
-      await interaction.channel.messages.fetch().then(async (msgs) => {
-        await msgs.forEach(async (msg) => {
-          if (msg.content.includes(stickyMessage.message)) {
-            await msg.delete().catch((e) => {});
-          }
-        });
+      const msgs = await interaction.channel.messages.fetch();
+      msgs.forEach(async (m) => {
+        if (m.content.includes(stickyMessage.message)) await m.delete().catch(() => {});
       });
 
       if (config.EnableSlowmode) interaction.channel.setRateLimitPerUser('0');
+      interaction.reply({ content: 'Đã xóa sticky message thành công!', ephemeral: true });
 
-      interaction.reply({
-        content: `You have successfully deleted the sticky message from this channel!`,
-        ephemeral: true,
-      });
     } else if (subCmd === 'list') {
-        const allStickyMessages = await StickyMessage.find();
-  
-        if (allStickyMessages.length === 0) {
-          return interaction.reply({ content: 'There are no active sticky messages.', ephemeral: true });
+      // Lấy tất cả sticky messages từ SQLite
+      const db = require('../../db/index');
+      const allSticky = db.prepare('SELECT * FROM sticky_messages').all();
+
+      if (!allSticky.length)
+        return interaction.reply({ content: 'Không có sticky message nào đang hoạt động.', ephemeral: true });
+
+      const embed = new Discord.EmbedBuilder()
+        .setTitle('Sticky Messages Đang Hoạt Động')
+        .setColor('Green');
+
+      for (const sticky of allSticky) {
+        const ch = client.channels.cache.get(sticky.channelId);
+        if (ch) {
+          embed.addFields(
+            { name: 'Kênh',    value: ch.name,        inline: true },
+            { name: 'Nội dung', value: sticky.message, inline: true },
+          );
+        } else {
+          StickyDB.delete(sticky.channelId);
         }
-  
-        const embed = new Discord.EmbedBuilder()
-          .setTitle('Active Sticky Messages')
-          .setColor('Green'); // You can customize the color
-  
-        for (const stickyMessage of allStickyMessages) {
-          const channel = client.channels.cache.get(stickyMessage.channelId);
-  
-          if (channel) {
-            embed.addFields(
-              { name: 'Channel', value: channel.name, inline: true },
-              { name: 'Message', value: stickyMessage.message, inline: true },
-            );
-          } else {
-            // Remove the entry from the database if the channel does not exist
-            await StickyMessage.findOneAndDelete({ channelId: stickyMessage.channelId });
-          }
-        }
-  
-        interaction.reply({ embeds: [embed], ephemeral: true });
       }
-    },
-  };
+
+      interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+  },
+};
