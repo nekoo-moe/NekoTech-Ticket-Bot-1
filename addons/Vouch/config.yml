@@ -1,8 +1,6 @@
 # ===========================================================================
-# Plex Tickets Vouch Addon Configuration
-# If you find any issues, need support, or have a suggestion for the dashboard, please join our support server and create a ticket, 
-# Discord: https://discord.gg/plexdev
-# Documentation: https://docs.plexdevelopment.net
+# Heiznerd Tickets — Vouch Addon
+# Hỗ trợ: https://heiznerd.tech/
 # ===========================================================================
 
 vouchChannelId: "CHANNEL_ID" # The channel all vouches should be sent to

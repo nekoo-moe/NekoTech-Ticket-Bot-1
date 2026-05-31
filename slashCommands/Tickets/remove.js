@@ -4,7 +4,7 @@ const fs = require('fs');
 const yaml = require("js-yaml")
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
-const ticketModel = require("../../models/ticketModel");
+const Tickets = require("../../db/tickets");
 const utils = require("../../utils.js");
 
 module.exports = {
@@ -14,7 +14,7 @@ module.exports = {
         .setDescription(commands.Ticket.Remove.Description)
         .addUserOption((option) => option.setName('user').setDescription('User').setRequired(true)),
     async execute(interaction, client) {
-        const ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+        const ticketDB = Tickets.findByChannelID(interaction.channel.id);
         if(!ticketDB) return interaction.reply({ content: config.Locale.NotInTicketChannel, flags: Discord.MessageFlags.Ephemeral })
 
         let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);

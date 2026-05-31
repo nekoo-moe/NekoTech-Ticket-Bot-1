@@ -6,8 +6,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
-const ticketModel = require('../../models/ticketModel');
-const blacklistModel = require('../../models/blacklistedUsersModel');
+const Blacklist = require('../../db/blacklist');
 
 function createBlacklistedUsersEmbed(blacklistedUsers, currentPage, totalPages) {
   const itemsPerPage = 10;
@@ -74,43 +73,35 @@ module.exports = {
       const user = interaction.options.getUser('user');
 
       const itemsPerPage = 5;
-      
-      let blacklistedUser = await blacklistModel.findOne({ userId: user?.id });
-
-      if (!blacklistedUser) {
-        blacklistedUser = new blacklistModel({ userId: user?.id });
-      }
 
       if (subcommand === 'add') {
-        if (blacklistedUser.blacklisted) {
+        if (Blacklist.isBlacklisted(user.id)) {
           const alreadyBlacklistedLocale = config.Locale.alreadyBlacklisted.replace(/{user}/g, `<@!${user.id}>`).replace(/{username}/g, `${user.username}`);
           const alreadyBlacklisted = new Discord.EmbedBuilder().setColor('Red').setDescription(alreadyBlacklistedLocale);
           return interaction.editReply({ embeds: [alreadyBlacklisted], flags: Discord.MessageFlags.Ephemeral });
         }
 
-        blacklistedUser.blacklisted = true;
-        await blacklistedUser.save();
+        Blacklist.add(user.id);
 
         const successfullyBlacklistedLocale = config.Locale.successfullyBlacklisted.replace(/{user}/g, `<@!${user.id}>`).replace(/{username}/g, `${user.username}`);
         const embed = new Discord.EmbedBuilder().setColor('Green').setDescription(successfullyBlacklistedLocale);
-
         interaction.editReply({ embeds: [embed], flags: Discord.MessageFlags.Ephemeral });
+
       } else if (subcommand === 'remove') {
-        if (!blacklistedUser.blacklisted) {
+        if (!Blacklist.isBlacklisted(user.id)) {
           const notBlacklistedLocale = config.Locale.notBlacklisted.replace(/{user}/g, `<@!${user.id}>`).replace(/{username}/g, `${user.username}`);
           const notBlacklisted = new Discord.EmbedBuilder().setColor('Red').setDescription(notBlacklistedLocale);
           return interaction.editReply({ embeds: [notBlacklisted], flags: Discord.MessageFlags.Ephemeral });
         }
 
-        blacklistedUser.blacklisted = false;
-        await blacklistedUser.save();
+        Blacklist.remove(user.id);
 
         const successfullyUnblacklistedLocale = config.Locale.successfullyUnblacklisted.replace(/{user}/g, `<@!${user.id}>`).replace(/{username}/g, `${user.username}`);
         const embed = new Discord.EmbedBuilder().setColor('Green').setDescription(successfullyUnblacklistedLocale);
-
         interaction.editReply({ embeds: [embed], flags: Discord.MessageFlags.Ephemeral });
+
       } else if (subcommand === 'list') {
-        const blacklistedUsers = await blacklistModel.find({ blacklisted: true });
+        const blacklistedUsers = Blacklist.findAll();
 
         const totalPages = Math.max(1, Math.ceil(blacklistedUsers.length / itemsPerPage));
         let currentPage = 1;
@@ -118,85 +109,47 @@ module.exports = {
         const calculateIndices = () => {
           const startIndex = (currentPage - 1) * itemsPerPage;
           const endIndex = Math.min(startIndex + itemsPerPage, blacklistedUsers.length);
-      
           if (startIndex >= blacklistedUsers.length) {
-              const lastPageStartIndex = Math.max(0, blacklistedUsers.length - itemsPerPage);
-              return { startIndex: lastPageStartIndex, endIndex: blacklistedUsers.length };
+            const lastPageStartIndex = Math.max(0, blacklistedUsers.length - itemsPerPage);
+            return { startIndex: lastPageStartIndex, endIndex: blacklistedUsers.length };
           }
-      
           return { startIndex, endIndex };
-      };
-    
-      if (blacklistedUsers.length !== 0) {
-        const paginationButtons = new Discord.ActionRowBuilder().addComponents(
-            new Discord.ButtonBuilder()
-                .setCustomId('prevPage')
-                .setLabel('Previous Page')
-                .setStyle('Primary'),
-            new Discord.ButtonBuilder()
-                .setCustomId('nextPage')
-                .setLabel('Next Page')
-                .setStyle('Primary'),
-        );
-    
-        const { startIndex, endIndex } = calculateIndices();
-        const embed = createBlacklistedUsersEmbed(blacklistedUsers.slice(startIndex, endIndex), currentPage, totalPages);
-        
-        const initialMessageOptions = {
-            embeds: [embed],
-            components: [paginationButtons],
         };
     
-        await interaction.editReply(initialMessageOptions);
+        if (blacklistedUsers.length !== 0) {
+          const paginationButtons = new Discord.ActionRowBuilder().addComponents(
+            new Discord.ButtonBuilder().setCustomId('prevPage').setLabel('Previous Page').setStyle('Primary'),
+            new Discord.ButtonBuilder().setCustomId('nextPage').setLabel('Next Page').setStyle('Primary'),
+          );
     
-        const collectorFilter = (buttonInteraction) => {
-            return buttonInteraction.user.id === interaction.user.id && ['prevPage', 'nextPage'].includes(buttonInteraction.customId);
-        };
-    
-        const collector = interaction.channel.createMessageComponentCollector({
-            filter: collectorFilter,
-            time: 180000,
-        });
-    
-        collector.on('collect', async (buttonInteraction) => {
-          if (buttonInteraction.customId === 'prevPage' && currentPage > 1) {
-              currentPage--;
-          } else if (buttonInteraction.customId === 'nextPage' && currentPage < totalPages) {
-              currentPage++;
-          }
-      
           const { startIndex, endIndex } = calculateIndices();
-      
-          const updatedEmbed = createBlacklistedUsersEmbed(blacklistedUsers.slice(startIndex, endIndex), currentPage, totalPages);
-      
-          updatedEmbed.fields = [];
-      
-          for (let i = startIndex; i < endIndex && i < blacklistedUsers.length; i++) {
-              const user = blacklistedUsers[i];
-              updatedEmbed.addFields({ name: 'User', value: `<@!${user.userId}>`, inline: false });
-          }
-      
-          if (endIndex < blacklistedUsers.length) {
-              updatedEmbed.addFields(
-                  blacklistedUsers
-                      .slice(endIndex, Math.min(endIndex + itemsPerPage, blacklistedUsers.length))
-                      .map(user => ({ name: 'User', value: `<@!${user.userId}>`, inline: false }))
-              );
-          }
-      
-          try {
+          const embed = createBlacklistedUsersEmbed(blacklistedUsers.slice(startIndex, endIndex), currentPage, totalPages);
+          await interaction.editReply({ embeds: [embed], components: [paginationButtons] });
+    
+          const collectorFilter = (buttonInteraction) =>
+            buttonInteraction.user.id === interaction.user.id && ['prevPage', 'nextPage'].includes(buttonInteraction.customId);
+    
+          const collector = interaction.channel.createMessageComponentCollector({ filter: collectorFilter, time: 180000 });
+    
+          collector.on('collect', async (buttonInteraction) => {
+            if (buttonInteraction.customId === 'prevPage' && currentPage > 1) currentPage--;
+            else if (buttonInteraction.customId === 'nextPage' && currentPage < totalPages) currentPage++;
+    
+            const { startIndex, endIndex } = calculateIndices();
+            const updatedEmbed = createBlacklistedUsersEmbed(blacklistedUsers.slice(startIndex, endIndex), currentPage, totalPages);
+    
+            try {
               await buttonInteraction.update({ embeds: [updatedEmbed], components: [paginationButtons] });
-          } catch (updateError) {
+            } catch (updateError) {
               console.error('Error updating button interaction:', updateError);
               collector.stop();
-          }
-      });
-      
-    } else {
-        const embed = createBlacklistedUsersEmbed(blacklistedUsers, currentPage, totalPages);
-        await interaction.editReply({ embeds: [embed] });
-    }
-    }
+            }
+          });
+        } else {
+          const embed = createBlacklistedUsersEmbed(blacklistedUsers, currentPage, totalPages);
+          await interaction.editReply({ embeds: [embed] });
+        }
+      }
 } catch (error) {
     console.error('Error managing blacklisted user:', error);
     interaction.editReply({ content: "Error managing blacklisted user, Try again.", flags: Discord.MessageFlags.Ephemeral });

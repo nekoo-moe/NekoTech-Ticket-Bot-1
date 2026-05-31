@@ -5,8 +5,9 @@ const yaml = require("js-yaml")
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
 const utils = require("../../utils.js");
-const ticketModel = require("../../models/ticketModel");
-const dashboardModel = require("../../models/dashboardModel");
+const Tickets = require("../../db/tickets");
+const { getConfig } = require("../../db/config");
+const db = require("../../db/index");
 
 module.exports = {
     enabled: commands.Ticket.Delete.Enabled,
@@ -15,7 +16,7 @@ module.exports = {
         .setDescription(commands.Ticket.Delete.Description),
     async execute(interaction, client) {
         await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral });
-        const ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+        const ticketDB = Tickets.findByChannelID(interaction.channel.id);
         if(!ticketDB) return interaction.editReply({ content: config.Locale.NotInTicketChannel, flags: Discord.MessageFlags.Ephemeral })
     
         let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);
@@ -69,7 +70,7 @@ module.exports = {
         const { attachment, timestamp } = await utils.saveTranscript(interaction)
 
         const dashboardExists = await utils.checkDashboard();
-        const dashboardDB = await dashboardModel.findOne({ guildID: config.GuildID });
+        const dashboardDB = db.prepare('SELECT * FROM dashboard WHERE guildID = ?').get(config.GuildID);
 
         const logsChannel = await utils.getCategoryLogsChannel(interaction.channel.id);
     

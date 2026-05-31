@@ -1,22 +1,4 @@
-const mongoose = require('mongoose');
-
-const schema = new mongoose.Schema ({
-    invoiceID: String,
-    userID: String,
-    sellerID: String,
-    channelID: String,
-    messageID: String,
-    customerID: String,
-    price: Number,
-    service: String,
-    status: String,
-}, {
-    timestamps: true,
-});
-
-module.exports = mongoose.model('stripe', schema);
-
-// Debugging:
-// %%__RESOURCE__%%
-// %%__TIMESTAMP__%%
-// %%__VERSION__%%
+// stripeInvoicesModel.js — đã chuyển sang SQLite
+// Stripe đã bị xóa, dùng VietQR thay thế
+const Invoices = require('../db/invoices');
+module.exports = Invoices;

@@ -4,7 +4,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
-const ticketModel = require("../../models/ticketModel");
+const Tickets = require("../../db/tickets");
 const utils = require("../../utils.js");
 
 module.exports = {
@@ -30,7 +30,7 @@ module.exports = {
         let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);
         if (!supportRole) return interaction.editReply({ content: config.Locale.NoPermsMessage, flags: Discord.MessageFlags.Ephemeral });
 
-        const ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+        const ticketDB = Tickets.findByChannelID(interaction.channel.id);
         if (!ticketDB) return interaction.editReply({ content: config.Locale.NotInTicketChannel, flags: Discord.MessageFlags.Ephemeral });
 
         const newCategoryId = interaction.options.getString('category');
@@ -118,7 +118,7 @@ module.exports = {
                 channelName = channelName.replace('{user-id}', ticketCreator.id);
             }
             
-            const totalTickets = await ticketModel.countDocuments({ guildID: interaction.guild.id });
+            const totalTickets = Tickets.countOpen(interaction.guild.id) + 1;
             channelName = channelName.replace('{total-tickets}', totalTickets.toString());
             
             await ticketChannel.setName(channelName);
@@ -131,13 +131,10 @@ module.exports = {
                 
             await ticketChannel.setTopic(newChannelTopic);
             
-            await ticketModel.findOneAndUpdate(
-                { channelID: ticketChannel.id },
-                { 
-                    ticketType: newCategoryConfig.CategoryName,
-                    button: newCategoryId
-                }
-            );
+            Tickets.updateByChannelID(ticketChannel.id, {
+                ticketType: newCategoryConfig.CategoryName,
+                button: newCategoryId
+            });
             
             if (newCategoryConfig.MentionSupportRoles === true) {
                 const supportRoleMentions = newCategoryConfig.SupportRoles

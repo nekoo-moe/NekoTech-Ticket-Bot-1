@@ -5,7 +5,7 @@ const yaml = require("js-yaml")
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
 const utils = require("../../utils.js");
-const guildModel = require("../../models/guildModel");
+const Guild = require("../../db/guild");
 
 module.exports = {
     enabled: commands.General.Stats.Enabled,
@@ -14,7 +14,7 @@ module.exports = {
         .setDescription(commands.General.Stats.Description),
     async execute(interaction, client) {
       await interaction.deferReply();
-        let statsDB = await guildModel.findOne({ guildID: interaction.guild.id });
+        let statsDB = Guild.getOrCreate(interaction.guild.id);
 
         const statsEmbed = new Discord.EmbedBuilder()
         .setColor(config.EmbedColors)

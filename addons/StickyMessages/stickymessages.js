@@ -1,4 +1,4 @@
-const yaml = require("yaml");
+const yaml = require("js-yaml");
 const fs = require("fs");
 const config = yaml.load(fs.readFileSync("./addons/StickyMessages/config.yml", "utf8"));
 const StickyDB = require("../../db/sticky");
@@ -58,7 +58,7 @@ module.exports.register = ({ on, client }) => {
                         sentMessage = await message.channel.send({ content: `${config.StickiedMessageTitle}\n\n${stickyMessage.message}` });
                     }
 
-                    await StickyMessageModel.findByIdAndUpdate(stickyMessage._id, { msgCount: 0, messageId: sentMessage.id });
+                    StickyDB.resetCount(message.channel.id);
                 }
             } else {
                 // Cooldown is still active, skip execution

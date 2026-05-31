@@ -8,6 +8,9 @@
 Token:    "MTUxMDI1NTE5Mzk3Mzk4NTQwMA.G7n49z.A2vI6LhgTB_jzCIrUFKYQERATUhwZrkcOpum7U"
 GuildID:  "1388889326309605488"
 
+# Màu embed mặc định (dùng bởi nhiều lệnh)
+EmbedColors: "#5e99ff"
+
 # ── TÙY CHỌN ────────────────────────────────────────────────────────────────
 # Đường dẫn file database SQLite (mặc định: ./data/bot.db)
 DatabasePath: "./data/bot.db"

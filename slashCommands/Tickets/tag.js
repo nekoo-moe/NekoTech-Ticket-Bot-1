@@ -4,7 +4,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
-const ticketModel = require("../../models/ticketModel");
+const Tickets = require("../../db/tickets");
 const utils = require("../../utils.js");
 
 module.exports = {
@@ -45,7 +45,7 @@ module.exports = {
 
         let ticketDB = null;
         if (config.Tags.OnlyInTickets) {
-            ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+            ticketDB = Tickets.findByChannelID(interaction.channel.id);
             if (!ticketDB) {
                 return interaction.reply({
                     content: config.Locale.NotInTicketChannel,
@@ -53,7 +53,7 @@ module.exports = {
                 });
             }
         } else {
-            ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+            ticketDB = Tickets.findByChannelID(interaction.channel.id);
         }
 
         const tagId = interaction.options.getString('name');

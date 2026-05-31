@@ -30,6 +30,8 @@ const { WebhookClient } = require('discord.js');
 
 const PORT = dconfig.Port;
 
+let _serverStarted = false;
+
 module.exports.register = ({ on, emit, client }) => {
 
 // Lưu URL/port vào SQLite thay vì dashboardModel
@@ -108,7 +110,7 @@ app.set('views', __dirname + '/views');
 const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
-// Get Plex Tickets version
+// Get Heiznerd Tickets version
 const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const discordBotVersion = packageJson.version;
@@ -131,7 +133,7 @@ function hexToRgb(hex) {
 
 function getAccentColor() {
   const config = yaml.load(fs.readFileSync('config.yml', 'utf8'));
-  const hexColor = config.EmbedColors;
+  const hexColor = config.EmbedColors || getConfig('bot.embedColor', '#5e99ff');
   const rgbColor = hexToRgb(hexColor);
   return { hex: hexColor, rgb: rgbColor };
 }
@@ -226,16 +228,16 @@ app.get('/home', isLoggedIn, async (req, res) => {
         recentTickets.map(async (ticket) => {
           try {
             const user = await client.users.fetch(ticket.userID);
-            return { ...ticket._doc, username: user.username };
+            return { ...ticket, username: user.username };
           } catch (error) {
             console.error(`Failed to fetch username for userID: ${ticket.userID}`, error);
-            return { ...ticket._doc, username: "Unknown User" };
+            return { ...ticket, username: "Unknown User" };
           }
         })
       );
 
 
-    res.render('home', { user: req.user, guildStats: guildStats, averageRating: averageRating, recentTickets: ticketsWithUsernames, config: dconfig,
+    res.render('home', { user: req.user, guildStats: guildStats, averageRating: avgRating, recentTickets: ticketsWithUsernames, config: dconfig,
     });
   } catch (error) {
     console.error('Error fetching data from MongoDB:', error);
@@ -304,7 +306,7 @@ app.get('/reviews', isLoggedIn, async (req, res) => {
     const reviewsWithUserInfo = await Promise.all(reviewsData.map(async (review) => {
       const userInfo = await getUserInfo(review.userID);
       return {
-        ...review._doc,
+        ...review,
         userInfo,
       };
     }));
@@ -659,7 +661,7 @@ app.get('/open-tickets/:ticket_id', isLoggedIn, async (req, res) => {
     res.render('view-ticket', {
       user: req.user,
       ticket: {
-        ...ticket.toJSON(),
+        ...ticket,
         channelName: channel.name,
         openDuration,
       },
@@ -697,16 +699,13 @@ app.post('/open-tickets/:ticket_id/close', isLoggedIn, async (req, res) => {
       user: req.user,
     };
 
-              Tickets.updateByChannelID(channel.id, {
-                  closeReason: null, closeNotificationTime: 0,
-              });
-                    $set: {
-                        closeUserID: req.user.id,
-                        closedAt: Date.now(),
-                        status: 'Closed',
-                    },
-                }
-            );
+    Tickets.updateByChannelID(channel.id, {
+        closeReason: null,
+        closeNotificationTime: 0,
+        closeUserID: req.user.id,
+        closedAt: Date.now(),
+        status: 'Closed',
+    });
 
     await client.emit('ticketClose', mockInteraction);
 
@@ -829,30 +828,30 @@ app.post('/delete-ticket/:channelId', isLoggedIn, async (req, res) => {
 
 
 
-const BlacklistedUser = require('../../models/blacklistedUsersModel');
+const Blacklist = require('../../db/blacklist');
 app.get('/blacklist', isLoggedIn, async (req, res) => {
   try {
-      const blacklistedUsers = await BlacklistedUser.find({ blacklisted: true });
+      const blacklistedUsers = Blacklist.findAll();
 
       const blacklistedUsersWithInfo = await Promise.all(blacklistedUsers.map(async (user) => {
           try {
               const userInfo = await getUserInfo(user.userId);
 
               return {
-                  ...user._doc,
+                  ...user,
                   username: userInfo.username,
                   avatar: userInfo.avatarURL,
               };
           } catch (error) {
               return {
-                  ...user._doc,
+                  ...user,
                   username: 'Unknown',
                   avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Faenza-avatar-default-symbolic.svg/2048px-Faenza-avatar-default-symbolic.svg.png',
               };
           }
       }));
 
-      blacklistedUsersWithInfo.sort((a, b) => b.updatedAt - a.updatedAt);
+      blacklistedUsersWithInfo.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       const userRoles = await getUserRoles(req.user.id, config.GuildID);
 
       res.render('blacklist', { user: req.user, blacklistedUsers: blacklistedUsersWithInfo, userRoles: userRoles, config: dconfig, invalidUserId: false });
@@ -871,16 +870,19 @@ app.post('/blacklist', isLoggedIn, async (req, res) => {
 
     if (member || action === 'unblacklist') {
       if (action === 'unblacklist') {
-        await BlacklistedUser.findOneAndUpdate({ userId }, { $set: { blacklisted: false } });
+        Blacklist.remove(userId);
       } else {
-        await BlacklistedUser.findOneAndUpdate({ userId }, { $set: { blacklisted: true } }, { upsert: true });
+        Blacklist.add(userId);
       }
       return res.redirect('/blacklist');
     } else {
+      const blacklistedUsers = Blacklist.findAll();
       return res.render('blacklist', {
         user: req.user,
-        blacklistedUsers: await BlacklistedUser.find({ blacklisted: true }),
+        blacklistedUsers: blacklistedUsers,
         invalidUserId: true,
+        userRoles: await getUserRoles(req.user.id, config.GuildID),
+        config: dconfig,
       });
     }
   } catch (error) {
@@ -916,13 +918,16 @@ app.get('/', (req, res) => {
   
 
   const color = require('ansi-colors');
-  app.listen(PORT, () => {
-    console.log(
-      `${color.cyan.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}\n` +
-      `${color.green.bold.underline(`Plex Tickets Dashboard v${dashboardVersion} Successfully Loaded!`)}\n` +
-      `Dashboard is live and accessible at: ${color.cyan.bold(dconfig.URL)}\n\n` +
-      `${color.bold.green('Made by Plex Development')}\n` +
-      `${color.cyan.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}`
-      );
-  });
+  if (!_serverStarted) {
+    _serverStarted = true;
+    app.listen(PORT, () => {
+      console.log(
+        `${color.cyan.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}\n` +
+        `${color.green.bold.underline(`Heiznerd Tickets Dashboard v${dashboardVersion} Successfully Loaded!`)}\n` +
+        `Dashboard is live and accessible at: ${color.cyan.bold(dconfig.URL)}\n\n` +
+        `${color.bold.green('Made by Heiznerd')}\n` +
+        `${color.cyan.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}`
+        );
+    });
+  }
 };

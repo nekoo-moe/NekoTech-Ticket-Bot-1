@@ -1,18 +1,20 @@
 const { Discord, EmbedBuilder, ButtonBuilder, ActionRowBuilder } = require("discord.js");
 const fs = require('fs');
-const yaml = require("js-yaml")
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
-const color = require('ansi-colors');
-const utils = require("../utils.js");
-const ticketModel = require("../models/ticketModel");
-const guildModel = require("../models/guildModel");
+const yaml = require("js-yaml");
+const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
+const color  = require('ansi-colors');
+const utils  = require("../utils.js");
+const { t }  = require("../lang/index");
+const Tickets     = require("../db/tickets");
+const Guild       = require("../db/guild");
+const AIResponses = require("../db/aiResponses");
+const { getConfig } = require("../db/config");
 const { incrementStat } = require("../staffStats.js");
 const OpenAI = require('openai');
-const AIAutoResponseModel = require('../models/aiAutoResponseModel');
 
 module.exports = async (client, message) => {
     if(!message.channel.type === 0) return;
-    const ticketDB = await ticketModel.findOne({ channelID: message.channel.id });
+    const ticketDB = Tickets.findByChannelID(message.channel.id);
     if(message.author.bot) return;
 
 if (ticketDB) {
@@ -38,131 +40,81 @@ if (ticketDB) {
 
 if (supportRole && !ticketDB.firstStaffResponse) {
   try {
-    const responseTime = Date.now() - new Date(ticketDB.createdAt).getTime();
-    
+    const responseTime = Date.now() - new Date(ticketDB.createdAt || ticketDB.ticketCreationDate).getTime();
     await incrementStat(message.author, 'responseTime', responseTime, {
-      ticketID: message.channel.id,
-      responseTime: responseTime
+      ticketID: message.channel.id, responseTime,
     });
-    
-    await ticketModel.findOneAndUpdate(
-      { channelID: message.channel.id },
-      { $set: { firstStaffResponse: Date.now() } }
-    );
+    Tickets.updateByChannelID(message.channel.id, { firstStaffResponse: new Date().toISOString() });
   } catch (error) {
-    console.error("Error tracking response time:", error);
-    
-    await ticketModel.findOneAndUpdate(
-      { channelID: message.channel.id },
-      { $set: { firstStaffResponse: Date.now() } }
-    );
+    console.error("Lỗi tracking response time:", error);
+    Tickets.updateByChannelID(message.channel.id, { firstStaffResponse: new Date().toISOString() });
   }
 }
 
-    const ticket = await ticketModel.findOne({ channelID: message.channel.id });
-    const existingParticipant = ticket.participants ? ticket.participants.find(p => p.userID === message.author.id) : null;
-    
+    // Cập nhật participants
+    const ticket = Tickets.findByChannelID(message.channel.id);
+    const participants = ticket?.participants || [];
+    const existingParticipant = participants.find(p => p.userID === message.author.id);
+
     if (existingParticipant) {
-      await ticketModel.findOneAndUpdate(
-        { 
-          channelID: message.channel.id,
-          "participants.userID": message.author.id
-        },
-        {
-          $inc: { "participants.$.messageCount": 1 },
-          $set: { "participants.$.lastMessage": Date.now() }
-        }
-      );
+      existingParticipant.messageCount = (existingParticipant.messageCount || 0) + 1;
+      existingParticipant.lastMessage  = new Date().toISOString();
     } else {
-      await ticketModel.findOneAndUpdate(
-        { channelID: message.channel.id },
-        {
-          $push: {
-            participants: {
-              userID: message.author.id,
-              messageCount: 1,
-              firstMessage: Date.now(),
-              lastMessage: Date.now()
-            }
-          }
-        }
-      );
+      participants.push({
+        userID:       message.author.id,
+        messageCount: 1,
+        firstMessage: new Date().toISOString(),
+        lastMessage:  new Date().toISOString(),
+      });
     }
 
-    await ticketModel.findOneAndUpdate(
-      { channelID: message.channel.id },
-      {
-        $set: {
-          lastMessageSent: Date.now(),
-          waitingReplyFrom: waitingReplyFrom,
-        },
-        $inc: { messages: 1 },
-      },
-      { new: true }
-    );
+    Tickets.updateByChannelID(message.channel.id, {
+      lastMessageSent:  new Date().toISOString(),
+      waitingReplyFrom: waitingReplyFrom,
+      messages:         (ticket?.messages || 0) + 1,
+      participants,
+    });
   }
 
-  await guildModel.findOneAndUpdate(
-    { guildID: message.guild.id },
-    { $inc: { totalMessages: 1 } }
-  );
+  Guild.increment(message.guild.id, 'totalMessages');
 
-  if (config.TicketAlert.Enabled) {
-    const filtered = await ticketModel.find({
-      closeNotificationTime: { $exists: true, $ne: null },
-      channelID: message.channel.id
-    });
-
-    for (const time of filtered) {
-      if(!time) return;
-      if(!time.channelID) return;
-      if(time.closeNotificationTime === 0) return
-
-      if(time.channelID === message.channel.id) {
-      await ticketModel.findOneAndUpdate(
-        { channelID: message.channel.id },
-        { $unset: { closeReason: 1 }, $set: { closeNotificationTime: 0 } }
-      );
-
-      if(message) await message.channel.messages.fetch(time.closeNotificationMsgID).then(msg => {
-        try {
-          msg.delete();
-        } catch (error) {
-          console.error("Error deleting message:", error);
-        }
-      });
-}
-
+  if (getConfig('alert.enabled', true)) {
+    const alertTicket = Tickets.findByChannelID(message.channel.id);
+    if (alertTicket && alertTicket.closeNotificationTime > 0) {
+      Tickets.updateByChannelID(message.channel.id, { closeNotificationTime: 0, closeReason: null });
+      if (alertTicket.closeNotificationMsgID) {
+        message.channel.messages.fetch(alertTicket.closeNotificationMsgID).then(msg => {
+          try { msg.delete(); } catch (_) {}
+        }).catch(() => {});
+      }
     }
   }
 }
 
 // AI AutoResponse System
-if (config.AIAutoResponse.Enabled && config.AIAutoResponse.Responses) {
+const aiEnabled   = getConfig('ai.enabled', false);
+const aiResponses = getConfig('ai.responses', {});
+if (aiEnabled && Object.keys(aiResponses).length > 0) {
   let supportRole = await utils.checkIfUserHasSupportRoles(null, message);
   if (supportRole) return;
 
-  if (config.AIAutoResponse.ChannelFilter.Mode !== "DISABLED") {
+  if (getConfig('ai.channelFilter.mode', 'DISABLED') !== "DISABLED") {
     const channelId = message.channel.id;
     const categoryId = message.channel.parent?.id;
-    const filterChannels = config.AIAutoResponse.ChannelFilter.Channels || [];
-    const filterCategories = config.AIAutoResponse.ChannelFilter.Categories || [];
+    const filterChannels   = getConfig('ai.channelFilter.channels', []);
+    const filterCategories = getConfig('ai.channelFilter.categories', []);
+    const filterMode       = getConfig('ai.channelFilter.mode', 'DISABLED');
     
-    const isChannelListed = filterChannels.includes(channelId);
+    const isChannelListed  = filterChannels.includes(channelId);
     const isCategoryListed = categoryId && filterCategories.includes(categoryId);
     const isListed = isChannelListed || isCategoryListed;
     
-    if (config.AIAutoResponse.ChannelFilter.Mode === "WHITELIST" && !isListed) {
-      return;
-    }
-    
-    if (config.AIAutoResponse.ChannelFilter.Mode === "BLACKLIST" && isListed) {
-      return;
-    }
+    if (filterMode === "WHITELIST" && !isListed) return;
+    if (filterMode === "BLACKLIST" && isListed)  return;
   }
 
   const userMessage = message.content;
-  const responses = config.AIAutoResponse.Responses;
+  const responses   = aiResponses;
   
   const isInTicket = !!ticketDB;
   const availableResponses = {};
@@ -195,30 +147,22 @@ if (config.AIAutoResponse.Enabled && config.AIAutoResponse.Responses) {
   });
 
   try {
-    const openai = new OpenAI({
-      apiKey: config.AIAutoResponse.OpenAIAPIKey,
-    });
+    const openai = new OpenAI({ apiKey: getConfig('ai.openaiKey', '') });
 
     const response = await openai.chat.completions.create({
-      model: config.AIAutoResponse.Model,
+      model: getConfig('ai.model', 'gpt-3.5-turbo'),
       messages: [
-        {
-          role: 'system',
-          content: fullSystemPrompt
-        },
-        {
-          role: 'user', 
-          content: `Analyze this user message: "${userMessage}"`
-        }
+        { role: 'system', content: fullSystemPrompt },
+        { role: 'user',   content: `Analyze this user message: "${userMessage}"` },
       ],
       temperature: 0.3,
-      max_tokens: 150
+      max_tokens: 150,
     });
 
     const aiResult = JSON.parse(response.choices[0].message.content);
     
     if (aiResult.match && 
-        aiResult.confidence >= config.AIAutoResponse.ConfidenceThreshold && 
+        aiResult.confidence >= getConfig('ai.confidenceThreshold', 0.7) &&
         availableResponses[aiResult.response_key]) {
       
       const responseConfig = availableResponses[aiResult.response_key];
@@ -230,45 +174,45 @@ if (config.AIAutoResponse.Enabled && config.AIAutoResponse.Responses) {
       if (responseType === "EMBED") {
         const aiEmbed = new EmbedBuilder();
         
-        const embedColor = responseConfig.Color || config.AIAutoResponse.Embed.Color || config.EmbedColors || "#5865F2";
+        const embedColor = responseConfig.Color || getConfig('ai.embed.color', '#5865F2') || config.EmbedColors || "#5865F2";
         aiEmbed.setColor(embedColor);
         
-        if (config.AIAutoResponse.Embed.Title && config.AIAutoResponse.Embed.Title.trim() !== "") {
-          aiEmbed.setTitle(config.AIAutoResponse.Embed.Title);
+        if (getConfig('ai.embed.title', '?? AI Assistant') && getConfig('ai.embed.title', '?? AI Assistant').trim() !== "") {
+          aiEmbed.setTitle(getConfig('ai.embed.title', '?? AI Assistant'));
         }
         
         aiEmbed.setDescription(responseMsg);
         
-        if (config.AIAutoResponse.Embed.ThumbnailURL && config.AIAutoResponse.Embed.ThumbnailURL.trim() !== "") {
-          aiEmbed.setThumbnail(config.AIAutoResponse.Embed.ThumbnailURL);
+        if (getConfig('ai.embed.thumbnailURL', '') && getConfig('ai.embed.thumbnailURL', '').trim() !== "") {
+          aiEmbed.setThumbnail(getConfig('ai.embed.thumbnailURL', ''));
         }
         
-        if (config.AIAutoResponse.Embed.Footer && config.AIAutoResponse.Embed.Footer.Text && config.AIAutoResponse.Embed.Footer.Text.trim() !== "") {
+        if (getConfig('ai.embed.footer', {}) && getConfig('ai.embed.footer.text', 'Powered by AI') && getConfig('ai.embed.footer.text', 'Powered by AI').trim() !== "") {
           const footerOptions = {
-            text: config.AIAutoResponse.Embed.Footer.Text
+            text: getConfig('ai.embed.footer.text', 'Powered by AI')
           };
           
-          if (config.AIAutoResponse.Embed.Footer.ShowUserAvatar !== false) {
+          if (getConfig('ai.embed.footer.showUserAvatar', true) !== false) {
             footerOptions.iconURL = message.author.displayAvatarURL({ dynamic: true });
           }
           
           aiEmbed.setFooter(footerOptions);
         }
 
-        if (config.AIAutoResponse.Embed.Footer && config.AIAutoResponse.Embed.Footer.ShowTimestamp !== false) {
+        if (getConfig('ai.embed.footer', {}) && getConfig('ai.embed.footer.showTimestamp', true) !== false) {
           aiEmbed.setTimestamp();
         }
 
-        if (config.AIAutoResponse.ButtonSettings.Enabled) {
+        if (getConfig('ai.buttonSettings.enabled', true)) {
           const row = new ActionRowBuilder()
             .addComponents(
               new ButtonBuilder()
                 .setCustomId(`ai_helpful_${message.id}`)
-                .setLabel(config.AIAutoResponse.ButtonSettings.HelpfulButton)
+                .setLabel(getConfig('ai.buttonSettings.helpfulButton', '?? H?u �ch'))
                 .setStyle('Success'),
               new ButtonBuilder()
                 .setCustomId(`ai_not_helpful_${message.id}`)
-                .setLabel(config.AIAutoResponse.ButtonSettings.NotHelpfulButton)
+                .setLabel(getConfig('ai.buttonSettings.notHelpfulButton', '?? C?n h? tr? th�m'))
                 .setStyle('Secondary')
             );
 
@@ -281,16 +225,16 @@ if (config.AIAutoResponse.Enabled && config.AIAutoResponse.Responses) {
         }
 
       } else if (responseType === "TEXT") {
-        if (config.AIAutoResponse.ButtonSettings.Enabled) {
+        if (getConfig('ai.buttonSettings.enabled', true)) {
           const row = new ActionRowBuilder()
             .addComponents(
               new ButtonBuilder()
                 .setCustomId(`ai_helpful_${message.id}`)
-                .setLabel(config.AIAutoResponse.ButtonSettings.HelpfulButton)
+                .setLabel(getConfig('ai.buttonSettings.helpfulButton', '?? H?u �ch'))
                 .setStyle('Success'),
               new ButtonBuilder()
                 .setCustomId(`ai_not_helpful_${message.id}`)
-                .setLabel(config.AIAutoResponse.ButtonSettings.NotHelpfulButton)
+                .setLabel(getConfig('ai.buttonSettings.notHelpfulButton', '?? C?n h? tr? th�m'))
                 .setStyle('Secondary')
             );
 
@@ -303,29 +247,25 @@ if (config.AIAutoResponse.Enabled && config.AIAutoResponse.Responses) {
         }
       }
 
-      if (config.AIAutoResponse.Statistics.Enabled) {
+      if (getConfig('ai.enabled', false) && getConfig('ai.statistics.enabled', true)) {
         const now = new Date();
-        const aiResponseData = new AIAutoResponseModel({
-          messageId: message.id,
-          userId: message.author.id,
-          channelId: message.channel.id,
-          guildId: message.guild.id,
-          userMessage: userMessage,
-          responseKey: aiResult.response_key,
-          aiConfidence: aiResult.confidence,
-          aiReasoning: aiResult.reasoning,
-          responseType: responseType,
+        AIResponses.create({
+          messageId:      message.id,
+          userId:         message.author.id,
+          channelId:      message.channel.id,
+          guildId:        message.guild.id,
+          userMessage,
+          responseKey:    aiResult.response_key,
+          aiConfidence:   aiResult.confidence,
+          aiReasoning:    aiResult.reasoning,
+          responseType,
           responseMessage: responseMsg,
-          isInTicket: isInTicket,
           month: now.getMonth() + 1,
-          year: now.getFullYear()
+          year:  now.getFullYear(),
         });
 
-        await aiResponseData.save();
-      }
-
-      if (config.AIAutoResponse.Statistics.LogsChannelID && config.AIAutoResponse.Statistics.LogsChannelID !== "CHANNEL_ID") {
-        const logsChannel = message.guild.channels.cache.get(config.AIAutoResponse.Statistics.LogsChannelID);
+      if (getConfig('ai.statistics.logsChannelID', '') && getConfig('ai.statistics.logsChannelID', '') !== "CHANNEL_ID") {
+        const logsChannel = message.guild.channels.cache.get(getConfig('ai.statistics.logsChannelID', ''));
         if (logsChannel) {
           const logEmbed = new EmbedBuilder()
             .setColor('#00FF7F')
@@ -354,6 +294,7 @@ if (config.AIAutoResponse.Enabled && config.AIAutoResponse.Responses) {
           logsChannel.send({ embeds: [logEmbed] });
         }
       }
+      } // đóng if (getConfig('ai.statistics.enabled'))
     }
 
   } catch (error) {
@@ -369,39 +310,36 @@ async function autoClaimTicket(client, message, ticketDB) {
     });
     
 
-    if (config.ClaimingSystem.MaxClaimsPerStaff > 0) {
-      const isExempt = config.ClaimingSystem.MaxClaimsExemptRoles?.some(roleId =>
-        message.member.roles.cache.has(roleId)
-      );
+    const maxClaims = getConfig('claiming.maxPerStaff', 3);
+    if (maxClaims > 0) {
+      const exemptRoles = getConfig('claiming.exemptRoles', []);
+      const isExempt = exemptRoles.some(roleId => message.member.roles.cache.has(roleId));
 
       if (!isExempt) {
-        const claimedTickets = await ticketModel.countDocuments({
-          claimUser: message.author.id,
-          claimed: true,
-          status: "Open"
-        });
+        const db = require('../db/index');
+        const claimedTickets = db.prepare(
+          "SELECT COUNT(*) AS cnt FROM tickets WHERE claimUser = ? AND claimed = 1 AND status = 'Open'"
+        ).get(message.author.id).cnt;
 
-        if (claimedTickets >= config.ClaimingSystem.MaxClaimsPerStaff) {
-          return false;
-        }
+        if (claimedTickets >= maxClaims) return false;
       }
     }
 
-    let autoClaimMessage = config.ClaimingSystem.AutoClaim.Message;
-    let embedClaimVar = autoClaimMessage.replace(/{user}/g, `<@!${message.author.id}>`);
+    const autoClaimMsg = getConfig('claiming.autoClaim.message', 'Ticket này đã được tự động nhận bởi {user}');
+    const embedClaimVar = autoClaimMsg.replace(/{user}/g, `<@!${message.author.id}>`);
     
     const embed = new EmbedBuilder()
-      .setTitle(config.Locale.ticketClaimedTitle)
+      .setTitle(t('ticket.claim.claimedTitle'))
       .setColor("Green")
       .setDescription(embedClaimVar)
       .setTimestamp()
       .setFooter({ 
-        text: `${config.Locale.ticketClaimedBy} ${message.author.username}`, 
-        iconURL: `${message.author.displayAvatarURL({ dynamic: true })}` 
+        text: `${t('ticket.claim.claimedBy')} ${message.author.username}`, 
+        iconURL: message.author.displayAvatarURL({ dynamic: true }),
       });
     
-    if (config.ClaimingSystem.AutoClaim.ShowMessage) {
-      await message.channel.send({ embeds: [embed], ephemeral: false });
+    if (getConfig('claiming.autoClaim.showMessage', true)) {
+      await message.channel.send({ embeds: [embed] });
     }
     
     try {
@@ -413,103 +351,86 @@ async function autoClaimTicket(client, message, ticketDB) {
         originalEmbed.data.fields = originalEmbed.data.fields || [];
         if (originalEmbed.data.fields.length > 0) {
           originalEmbed.data.fields[0] = { 
-            name: `${config.Locale.ticketClaimedBy}`, 
+            name: t('ticket.claim.claimedBy'), 
             value: `> <@!${message.author.id}> (${message.author.username})` 
           };
         } else {
           originalEmbed.addFields([{
-            name: `${config.Locale.ticketClaimedBy}`, 
+            name: t('ticket.claim.claimedBy'), 
             value: `> <@!${message.author.id}> (${message.author.username})`
           }]);
         }
         
         const ticketDeleteButton = new ButtonBuilder()
           .setCustomId('closeTicket')
-          .setLabel(config.Locale.CloseTicketButton)
-          .setStyle(config.ButtonColors.closeTicket)
-          .setEmoji(config.ButtonEmojis.closeTicket);
+          .setLabel(t('buttons.close'))
+          .setStyle(getConfig('buttons.colors.closeTicket', 'Danger'))
+          .setEmoji(getConfig('buttons.emojis.closeTicket', '🔒'));
           
         const ticketClaimButton = new ButtonBuilder()
           .setCustomId('ticketclaim')
-          .setLabel(config.Locale.claimTicketButton)
-          .setEmoji(config.ButtonEmojis.ticketClaim)
-          .setStyle(config.ButtonColors.ticketClaim)  
+          .setLabel(t('ticket.claim.button'))
+          .setEmoji(getConfig('buttons.emojis.ticketClaim', '👋'))
+          .setStyle(getConfig('buttons.colors.ticketClaim', 'Success'))
           .setDisabled(true);
           
         const ticketUnClaimButton = new ButtonBuilder()
           .setCustomId('ticketunclaim')
-          .setLabel(config.Locale.unclaimTicketButton)
-          .setStyle(config.ButtonColors.ticketUnclaim)
+          .setLabel(t('ticket.claim.unclaimButton'))
+          .setStyle(getConfig('buttons.colors.ticketUnclaim', 'Primary'));
           
         const row = new ActionRowBuilder().addComponents(ticketDeleteButton, ticketClaimButton, ticketUnClaimButton);
         
         await msg.edit({ embeds: [originalEmbed], components: [row] });
       }
     } catch (error) {
-      console.error("Error updating original ticket message:", error);
+      console.error("Lỗi cập nhật tin nhắn ticket:", error);
     }
     
-    if (config.ClaimingSystem?.UserPerms) {
+    const userPermsEnabled = getConfig('claiming.userPerms', null);
+    if (userPermsEnabled) {
       try {
-        const tButton = ticketDB.button;
-        const categoryConfig = config.TicketCategories[tButton];
+        const Categories = require('../db/categories');
+        const cat = Categories.findAll().find(c => c.categoryName === ticketDB.ticketType);
         
-        if (categoryConfig && categoryConfig.SupportRoles) {
-          await Promise.all(categoryConfig.SupportRoles.map(async (sRoles) => {
+        if (cat?.supportRoles) {
+          await Promise.all(cat.supportRoles.map(async (sRoles) => {
             const role = message.guild.roles.cache.get(sRoles);
             if (role) {
               await message.channel.permissionOverwrites.edit(role, {
-                SendMessages: config.ClaimingSystem.UserPerms.SendMessages,
-                ViewChannel: config.ClaimingSystem.UserPerms.ViewChannel
+                SendMessages: getConfig('claiming.userPerms.sendMessages', false),
+                ViewChannel:  getConfig('claiming.userPerms.viewChannel', true),
               });
             }
           }));
         }
         
         await message.channel.permissionOverwrites.edit(message.author, {
-          SendMessages: true,
-          ViewChannel: true,
-          AttachFiles: true,
-          EmbedLinks: true,
-          ReadMessageHistory: true
+          SendMessages: true, ViewChannel: true,
+          AttachFiles: true, EmbedLinks: true, ReadMessageHistory: true,
         });
       } catch (error) {
-        console.error("Error updating permissions:", error);
+        console.error("Lỗi cập nhật permissions:", error);
       }
     }
 
-    if (config.ClaimingSystem.MoveClaimedTickets?.Enabled && 
-        config.ClaimingSystem.MoveClaimedTickets?.CategoryID) {
-        const claimedCategoryID = config.ClaimingSystem.MoveClaimedTickets.CategoryID;
-        const claimedCategory = message.guild.channels.cache.get(claimedCategoryID);
-        
+    const moveEnabled   = getConfig('claiming.moveEnabled', true);
+    const moveCategoryID= getConfig('claiming.moveCategoryID', '');
+    if (moveEnabled && moveCategoryID) {
+        const claimedCategory = message.guild.channels.cache.get(moveCategoryID);
         if (claimedCategory && claimedCategory.type === 4) {
-            await ticketModel.updateOne(
-                { channelID: message.channel.id },
-                {
-                    $set: {
-                        originalCategoryID: message.channel.parentId,
-                    },
-                }
-            );
-            
-            await message.channel.setParent(claimedCategoryID, {
-                lockPermissions: false
-            }).catch(error => {
-                console.error(`Error moving ticket to claimed category: ${error}`);
+            Tickets.updateByChannelID(message.channel.id, {
+                originalCategoryID: message.channel.parentId,
             });
+            await message.channel.setParent(moveCategoryID, { lockPermissions: false })
+              .catch(err => console.error('Lỗi di chuyển ticket:', err));
         }
     }
     
-    await ticketModel.updateOne(
-      { channelID: message.channel.id },
-      {
-        $set: {
-          claimed: true,
-          claimUser: message.author.id,
-        },
-      }
-    );
+    Tickets.updateByChannelID(message.channel.id, {
+      claimed:   true,
+      claimUser: message.author.id,
+    });
     
 
       try {
@@ -525,14 +446,14 @@ async function autoClaimTicket(client, message, ticketDB) {
             .setTimestamp();
             
           let mainContent = '';
-          mainContent += `> **${config.Locale.logsExecutor}:** <@!${message.author.id}> \`${message.author.username}\`\n`;
-          mainContent += `> **${config.Locale.logsTicket}:** <#${message.channel.id}> \`#${message.channel.name}\`\n`;
-          mainContent += `> **${config.Locale.ticketCategory}:** \`${ticketDB.ticketType}\`\n`;
-          mainContent += `> **${config.Locale.autoClaimedNote}:** \`Auto-claimed on first response\``;
+          mainContent += `> **${t('logs.executor')}:** <@!${message.author.id}> \`${message.author.username}\`\n`;
+          mainContent += `> **${t('logs.ticket')}:** <#${message.channel.id}> \`#${message.channel.name}\`\n`;
+          mainContent += `> **${t('logs.category')}:** \`${ticketDB.ticketType}\`\n`;
+          mainContent += `> **${t('ticket.claim.autoClaimedNote')}:** \`Tự động nhận khi phản hồi đầu tiên\``;
           
           log.addFields([
             { 
-              name: `\`🎫\` **${config.Locale.claimDetails}**`, 
+              name: `\`🎫\` **${t('logs.claimDetails')}**`, 
               value: mainContent 
             }
           ]);

@@ -1,17 +1,12 @@
-const { Discord, EmbedBuilder } = require("discord.js");
 const fs = require('fs');
-const yaml = require("js-yaml")
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
-const color = require('ansi-colors');
-const utils = require("../utils.js");
-const guildModel = require("../models/guildModel");
-const suggestionModel = require("../models/suggestionModel");
-
+const yaml = require("js-yaml");
+const Suggestions = require("../db/suggestions");
 
 module.exports = async (client, message) => {
-
-    // Check if the deleted message is in the suggestion database, and if it is, delete it from the db
-    const suggestion = await suggestionModel.findOne({ msgID: message.id });
-    if (suggestion) await suggestionModel.findOneAndDelete({ msgID: message.id });
-
-}
+  // Nếu tin nhắn bị xóa là suggestion, xóa khỏi DB
+  const suggestion = Suggestions.findByMsgID(message.id);
+  if (suggestion) {
+    const db = require('../db/index');
+    db.prepare('DELETE FROM suggestions WHERE msgID = ?').run(message.id);
+  }
+};

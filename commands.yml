@@ -1,7 +1,6 @@
 # ===========================================================================
-# Plex Tickets Commands Configuration
-# If you find any issues, need support, or have a suggestion for the bot, please join our support server and create a ticket, 
-# https://discord.gg/plexdev
+# Heiznerd Tickets — Cấu hình lệnh
+# Hỗ trợ: https://heiznerd.tech/
 # ===========================================================================
 
 # ===========================================================================
@@ -80,14 +79,21 @@ Utility:
   Calculate: # Calculate command
     Enabled: true
     Description: "Math Calculator"
-  Crypto: # Crypto command
-    Enabled: true
-    Description: "Send a Crypto Payment"
-  Invoice: # Invoice command
-    Enabled: true
-    Description: "Send an invoice to a user"
+  Crypto: # Crypto command — đã thay bằng VietQR
+    Enabled: false
+    Description: "Gửi thanh toán VietQR"
+  Invoice: # Invoice command — đã thay bằng VietQR
+    Enabled: false
+    Description: "Gửi hóa đơn thanh toán"
   AIAnalytics: # ai-analytics command
     Enabled: true
     Description: "View AI AutoResponse analytics and statistics"
 
-# 2616LC9M
+# ===========================================================================
+# ADMIN COMMANDS
+# ===========================================================================
+
+Admin:
+  Setup: # Setup command
+    Enabled: true
+    Description: "Cấu hình bot (category, ticket settings, v.v.)"

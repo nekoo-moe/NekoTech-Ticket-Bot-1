@@ -1,20 +1,5 @@
-const mongoose = require('mongoose');
+// guildModel.js — đã chuyển sang SQLite
+// Dùng db/guild.js cho tất cả runtime operations
+const Guild = require('../db/guild');
 
-const schema = new mongoose.Schema ({
-    guildID: String,
-    totalTickets: Number,
-    openTickets: Number,
-    totalClaims: Number,
-    totalMessages: Number,
-    totalSuggestions: Number,
-    totalSuggestionUpvotes: Number,
-    totalSuggestionDownvotes: Number,
-    totalReviews: Number,
-    averageRating: Number,
-    timesBotStarted: Number,
-    averageCompletion: String,
-    averageResponse: String,
-    reviews: [],
-});
-
-module.exports = mongoose.model('guild', schema);
+module.exports = Guild;

@@ -6,7 +6,7 @@ const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
 
 module.exports = {
-    enabled: config.SuggestionSettings.Enabled,
+    enabled: config.SuggestionSettings?.Enabled ?? false,
     data: new ContextMenuCommandBuilder()
     .setName("Accept Suggestion")
     .setType(ApplicationCommandType.Message)

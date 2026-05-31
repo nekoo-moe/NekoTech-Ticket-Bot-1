@@ -4,7 +4,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
-const ticketModel = require("../../models/ticketModel");
+const Tickets = require("../../db/tickets");
 const utils = require("../../utils.js");
 
 module.exports = {
@@ -18,7 +18,7 @@ module.exports = {
         let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);
         if (!supportRole) return interaction.editReply({ content: config.Locale.NoPermsMessage, flags: MessageFlags.Ephemeral });
 
-        const ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+        const ticketDB = Tickets.findByChannelID(interaction.channel.id);
         if (!ticketDB) return interaction.editReply({ content: config.Locale.NotInTicketChannel, flags: MessageFlags.Ephemeral });
 
         try {

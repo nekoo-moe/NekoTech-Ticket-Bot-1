@@ -29,7 +29,17 @@ const Tickets    = require('../db/tickets');
 const { getConfig, setConfig, seedDefaults } = require('../db/config');
 const Categories = require('../db/categories');
 
+// Guard: chỉ chạy toàn bộ ready logic 1 lần dù event fire nhiều lần
+let _readyExecuted = false;
+
 module.exports = async (client) => {
+  if (_readyExecuted) {
+    // Reconnect — chỉ cập nhật activity, không load lại commands/addons
+    console.log(color.yellow('[READY] Bot đã reconnect — bỏ qua re-init.'));
+    return;
+  }
+  _readyExecuted = true;
+
   client.commands     = new Collection();
   client.slashCommands = new Collection();
 

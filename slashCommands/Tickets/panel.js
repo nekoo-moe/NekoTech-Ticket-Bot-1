@@ -5,7 +5,7 @@ const yaml = require("js-yaml");
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
 const moment = require('moment-timezone');
-const ticketPanelModel = require("../../models/ticketPanelModel");
+const Panels = require("../../db/panels");
 
 const workingHoursRegex = /^(\d{1,2}:\d{2})-(\d{1,2}:\d{2})$/;
 
@@ -279,22 +279,9 @@ if (config.WorkingHours && config.WorkingHours.Schedule) {
                     });
                     
                     if (selectMenuEnabled) {
-                        const newDocument = new ticketPanelModel({
-                            guildID: config.GuildID,
-                            panelId: panelId,
-                            selectMenuOptions: options,
-                            msgID: sentPanel.id,
-                        });
-                        
-                        await newDocument.save();
+                        Panels.upsert(config.GuildID, panelId, sentPanel.id, options);
                     } else {
-                        const newDocument = new ticketPanelModel({
-                            guildID: config.GuildID,
-                            panelId: panelId,
-                            msgID: sentPanel.id,
-                        });
-                        
-                        await newDocument.save();
+                        Panels.upsert(config.GuildID, panelId, sentPanel.id, []);
                     }
                     
                     await i.update({ 

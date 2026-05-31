@@ -70,6 +70,7 @@ async function updateTicketMessage(channel, ticket, interaction) {
       DisplaySideBySide:    config.getConfig('ticket.questionFormatting.displaySideBySide', false),
       AddSpaceBetweenQuestions: false,
     };
+    try {
         const ticketMessage = await channel.messages.fetch(ticket.msgID);
         if (!ticketMessage) {
             console.error('Could not find original ticket message');
@@ -104,8 +105,7 @@ async function updateTicketMessage(channel, ticket, interaction) {
         
         updatedEmbed.setFields(fieldsToKeep);
 
-        const formatting = config.TicketQuestionFormatting || {};
-        
+        // formatting d� khai b�o ? d?u h�m
         for (const question of ticket.questions) {
             if (formatting.AddSpaceBetweenQuestions && updatedEmbed.fields.length > 0) {
                 updatedEmbed.addFields({ name: '\u200B', value: '\u200B', inline: false });
@@ -201,8 +201,7 @@ async function updateTicketMessageWithRetry(channel, ticket, interaction, config
         
         updatedEmbed.setFields(fieldsToKeep);
 
-        const formatting = config.TicketQuestionFormatting || {};
-        
+        // formatting d� khai b�o ? d?u h�m
         for (const question of ticket.questions) {
             if (formatting.AddSpaceBetweenQuestions && updatedEmbed.fields.length > 0) {
                 updatedEmbed.addFields({ name: '\u200B', value: '\u200B', inline: false });

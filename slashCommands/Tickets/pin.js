@@ -5,7 +5,7 @@ const yaml = require("js-yaml")
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
 const utils = require("../../utils.js");
-const ticketModel = require("../../models/ticketModel");
+const Tickets = require("../../db/tickets");
 
 module.exports = {
     enabled: commands.Ticket.Pin.Enabled,
@@ -13,7 +13,7 @@ module.exports = {
         .setName('pin')
         .setDescription(commands.Ticket.Pin.Description),
     async execute(interaction, client) {
-        const ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+        const ticketDB = Tickets.findByChannelID(interaction.channel.id);
         if(!ticketDB) return interaction.reply({ content: config.Locale.NotInTicketChannel, flags: Discord.MessageFlags.Ephemeral })
     
         let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);

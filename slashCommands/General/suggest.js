@@ -4,8 +4,8 @@ const fs = require('fs');
 const yaml = require("js-yaml");
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
-const guildModel = require("../../models/guildModel");
-const suggestionModel = require("../../models/suggestionModel");
+const Guild      = require("../../db/guild");
+const Suggestions = require("../../db/suggestions");
 const utils = require("../../utils.js");
 
 module.exports = {
@@ -58,7 +58,7 @@ module.exports = {
             
             const row = await utils.createSuggestionButtons(suggestionObj);
             
-            const statsDB = await guildModel.findOne({ guildID: config.GuildID });
+            const statsDB = Guild.getOrCreate(config.GuildID);
             const avatarUrl = interaction.user.displayAvatarURL({ format: 'png', dynamic: true, size: 1024 });
             
             const embed = new EmbedBuilder()
@@ -109,16 +109,11 @@ module.exports = {
                 nonce: nonce.toString() 
             });
 
-            const newModel = new suggestionModel({
+            Suggestions.create({
                 msgID: suggestionMsg.id,
                 userID: interaction.user.id,
                 suggestion: suggestion,
-                upVotes: 0,
-                downVotes: 0,
-                status: "Pending",
-                voters: []
             });
-            await newModel.save();
 
             if(config.SuggestionSettings.CreateThreads) {
                 await suggestionMsg.startThread({
@@ -128,8 +123,7 @@ module.exports = {
                 });
             }
         
-            statsDB.totalSuggestions++;
-            await statsDB.save();
+            Guild.increment(config.GuildID, 'totalSuggestions');
           
             modalSubmission.editReply({ 
                 content: config.Locale.suggestionSubmit, 

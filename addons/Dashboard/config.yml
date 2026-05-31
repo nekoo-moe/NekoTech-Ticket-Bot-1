@@ -1,8 +1,6 @@
 # ===========================================================================
-# Plex Tickets Dashboard Configuration
-# If you find any issues, need support, or have a suggestion for the dashboard, please join our support server and create a ticket, 
-# Discord: https://discord.gg/plexdev
-# Documentation: https://docs.plexdevelopment.net
+# Heiznerd Tickets Dashboard — Cấu hình
+# Hỗ trợ: https://heiznerd.tech/
 # ===========================================================================
 DashboardLogs: true # Enable dashboards logs in the terminal? user logins, actions, etc..
 
@@ -12,15 +10,15 @@ DashboardLogs: true # Enable dashboards logs in the terminal? user logins, actio
 # ===========================================================================
 # Discord OAuth2 credentials, get these from the Discord Developer Portal: https://discord.com/developers/applications
 # Note: MAKE SURE TO REPLACE LOCALHOST:3000 WITH THE DOMAIN OR IP YOU ACCESS THE WEB DASHBOARD WITH!
-clientID: "CLIENT_ID"
-clientSecret: "CLIENT_SECRET"
+clientID: "1510255193973985400"
+clientSecret: "T8CxQ58AWUzNgG0xkNONmzAOA2pyqJSn"
 callbackURL: "http://localhost:3000/auth/discord/callback" # Create a Redirect URL in the Developer Portal and set it to the callback URL below
 
 # ===========================================================================
 # WEBSERVER
 # You must not leave them as blank!
 # ===========================================================================
-URL: "http://localhost:3000" # The exact same url you will use to access the dashboard, Example: https://dashboard.plexdevelopment.net (NO TRAILING SLASHES) IP also works
+URL: "http://localhost:3000" # URL truy cập dashboard, ví dụ: https://dashboard.heiznerd.tech (KHÔNG có dấu / cuối)
 Port: 3000 # The port you want the webserver to be ran on
 PublicTranscripts: false # When set to true, anyone can view ticket transcripts without logging in. When false, only ticket creators and support staff can view transcripts.
 

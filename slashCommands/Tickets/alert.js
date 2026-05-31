@@ -6,7 +6,7 @@ const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
 const utils = require("../../utils.js");
 const ms = require('ms');
-const ticketModel = require("../../models/ticketModel");
+const Tickets = require("../../db/tickets");
 
 module.exports = {
     enabled: commands.Ticket.Alert.Enabled,
@@ -14,7 +14,7 @@ module.exports = {
         .setName('alert')
         .setDescription(commands.Ticket.Alert.Description),
     async execute(interaction, client) {
-        const ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+        const ticketDB = Tickets.findByChannelID(interaction.channel.id);
         if(!ticketDB) return interaction.reply({ content: config.Locale.NotInTicketChannel, flags: Discord.MessageFlags.Ephemeral })
         if(config.TicketAlert.Enabled === false) return interaction.reply({ content: "This command has been disabled in the config!", flags: Discord.MessageFlags.Ephemeral })
 
@@ -98,20 +98,14 @@ module.exports = {
         interaction.editReply({ content: `<@!${ticketCreator.id}>`, embeds: [embed], components: [row], fetchReply: true }).then(async function(msg) {
 
             try {
-                const filter = { channelID: interaction.channel.id };
-                const update = {
+                Tickets.updateByChannelID(interaction.channel.id, {
                   closeNotificationTime: Date.now(),
                   closeNotificationMsgID: msg.id,
                   closeNotificationUserID: interaction.user.id,
                   channelID: interaction.channel.id,
                   closeUserID: interaction.user.id,
                   closeReason: "Closed automatically after time has passed with no response (Alert command)"
-                };
-              
-                const options = { upsert: true, new: true, setDefaultsOnInsert: true };
-              
-                await ticketModel.findOneAndUpdate(filter, update, options);
-              
+                });
               } catch (error) {
                 console.error('Error updating ticket:', error);
               }

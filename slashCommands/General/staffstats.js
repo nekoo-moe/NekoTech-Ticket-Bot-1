@@ -9,7 +9,7 @@ const {
     getStaffStats, 
     getStaffMemberStats
 } = require("../../staffStats.js");
-const staffStatsModel = require("../../models/staffStatsModel");
+const StaffStats = require("../../db/staffStats");
 
 module.exports = {
     enabled: commands.General.StaffStats.Enabled,
@@ -190,7 +190,7 @@ async function showLeaderboard(interaction, timeframe, sortBy) {
 
 async function handleReset(interaction, targetUser, timeframe) {
     if (targetUser) {
-        const staffMember = await staffStatsModel.findOne({ userID: targetUser.id });
+        const staffMember = StaffStats.findByUserID(targetUser.id);
         
         if (!staffMember) {
             return interaction.editReply({
@@ -198,21 +198,27 @@ async function handleReset(interaction, targetUser, timeframe) {
             });
         }
         
-        await performReset(staffMember, timeframe);
+        performReset(staffMember, timeframe);
+        StaffStats.upsert(staffMember);
         return interaction.editReply({
             content: `✅ Successfully reset ${timeframe} statistics for ${targetUser.username}.`
         });
     } else {
         if (timeframe === 'lifetime') {
-            await staffStatsModel.deleteMany({});
+            const allStaff = StaffStats.findAll();
+            for (const staff of allStaff) {
+                const reset = performReset(staff, timeframe);
+                StaffStats.upsert(reset);
+            }
             return interaction.editReply({
                 content: "✅ Successfully reset all staff statistics."
             });
         } else {
-            const allStaff = await staffStatsModel.find({});
+            const allStaff = StaffStats.findAll();
             
             for (const staff of allStaff) {
-                await performReset(staff, timeframe);
+                const reset = performReset(staff, timeframe);
+                StaffStats.upsert(reset);
             }
             
             return interaction.editReply({
@@ -222,7 +228,7 @@ async function handleReset(interaction, targetUser, timeframe) {
     }
 }
 
-async function performReset(staffMember, timeframe) {
+function performReset(staffMember, timeframe) {
     const now = new Date();
     
     if (timeframe === 'weekly') {
@@ -230,61 +236,38 @@ async function performReset(staffMember, timeframe) {
             const weekEnd = new Date(w.endDate);
             return weekEnd >= now;
         });
-        
         if (currentWeek) {
-            currentWeek.messages = 0;
-            currentWeek.claims = 0;
-            currentWeek.closedTickets = 0;
-            currentWeek.responseTime = 0;
-            currentWeek.ratings = 0;
-            currentWeek.ratingScore = 0;
-            currentWeek.averageRating = 0;
+            currentWeek.messages = 0; currentWeek.claims = 0;
+            currentWeek.closedTickets = 0; currentWeek.responseTime = 0;
+            currentWeek.ratings = 0; currentWeek.ratingScore = 0; currentWeek.averageRating = 0;
         }
     } else if (timeframe === 'monthly') {
         const currentMonth = staffMember.monthly.find(m => {
             const monthEnd = new Date(m.endDate);
             return monthEnd >= now;
         });
-        
         if (currentMonth) {
-            currentMonth.messages = 0;
-            currentMonth.claims = 0;
-            currentMonth.closedTickets = 0;
-            currentMonth.responseTime = 0;
-            currentMonth.ratings = 0;
-            currentMonth.ratingScore = 0;
-            currentMonth.averageRating = 0;
+            currentMonth.messages = 0; currentMonth.claims = 0;
+            currentMonth.closedTickets = 0; currentMonth.responseTime = 0;
+            currentMonth.ratings = 0; currentMonth.ratingScore = 0; currentMonth.averageRating = 0;
         }
     } else if (timeframe === 'yearly') {
         const currentYear = staffMember.yearly.find(y => {
             const yearEnd = new Date(y.endDate);
             return yearEnd >= now;
         });
-        
         if (currentYear) {
-            currentYear.messages = 0;
-            currentYear.claims = 0;
-            currentYear.closedTickets = 0;
-            currentYear.responseTime = 0;
-            currentYear.ratings = 0;
-            currentYear.ratingScore = 0;
-            currentYear.averageRating = 0;
+            currentYear.messages = 0; currentYear.claims = 0;
+            currentYear.closedTickets = 0; currentYear.responseTime = 0;
+            currentYear.ratings = 0; currentYear.ratingScore = 0; currentYear.averageRating = 0;
         }
     } else if (timeframe === 'lifetime') {
-        staffMember.totalMessages = 0;
-        staffMember.totalClaims = 0;
-        staffMember.totalClosedTickets = 0;
-        staffMember.averageResponseTime = 0;
-        staffMember.totalRatings = 0;
-        staffMember.totalRatingScore = 0;
-        staffMember.averageRating = 0;
-        staffMember.ticketsHistory = [];
-        staffMember.weekly = [];
-        staffMember.monthly = [];
-        staffMember.yearly = [];
+        staffMember.totalMessages = 0; staffMember.totalClaims = 0;
+        staffMember.totalClosedTickets = 0; staffMember.averageResponseTime = 0;
+        staffMember.totalRatings = 0; staffMember.totalRatingScore = 0;
+        staffMember.averageRating = 0; staffMember.ticketsHistory = [];
+        staffMember.weekly = []; staffMember.monthly = []; staffMember.yearly = [];
     }
-    
-    await staffMember.save();
     return staffMember;
 }
 

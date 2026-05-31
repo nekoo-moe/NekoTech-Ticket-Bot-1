@@ -4,7 +4,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
 const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
-const ticketModel = require("../../models/ticketModel");
+const Tickets = require("../../db/tickets");
 const utils = require("../../utils.js");
 
 function formatCooldown(cooldownTime) {
@@ -46,7 +46,7 @@ module.exports = {
                         .setDescription('Priority level')
                         .setRequired(true);
                     
-                    for (let priorityLevel of config.PrioritySettings.Levels) {
+                    for (let priorityLevel of (config.PrioritySettings?.Levels || [])) {
                         option.addChoices({ name: priorityLevel.priority, value: priorityLevel.priority.toLowerCase() });
                     }
                     
@@ -63,7 +63,7 @@ module.exports = {
         let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);
         if (!supportRole) return interaction.editReply({ content: config.Locale.NoPermsMessage, flags: Discord.MessageFlags.Ephemeral });
 
-        const ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
+        const ticketDB = Tickets.findByChannelID(interaction.channel.id);
         if (!ticketDB) return interaction.editReply({ content: config.Locale.NotInTicketChannel, flags: Discord.MessageFlags.Ephemeral });
 
         if (interaction.options.getSubcommand() === 'set') {
@@ -90,14 +90,11 @@ module.exports = {
             const cooldownDuration = 10 * 60 * 1000;
             const cooldownEndDate = Date.now() + cooldownDuration;
 
-            await ticketModel.findOneAndUpdate(
-                { channelID: interaction.channel.id },
-                {
-                    priorityCooldown: cooldownEndDate,
-                    priority: selectedLevel.priority,
-                    priorityName: interaction.channel.name,
-                }
-            );
+            Tickets.updateByChannelID(interaction.channel.id, {
+                priorityCooldown: cooldownEndDate,
+                priority: selectedLevel.priority,
+                priorityName: interaction.channel.name,
+            });
 
             const newChannelName = selectedLevel.channelName ? `${selectedLevel.channelName}${interaction.channel.name}` : `${interaction.channel.name}`;
             if(selectedLevel.channelName) await interaction.channel.setName(newChannelName);
@@ -141,7 +138,7 @@ module.exports = {
             const newPosition = channelsInCategory + 1;
             if(selectedLevel.moveToTop) await interaction.channel.setPosition(newPosition);
 
-            await ticketModel.findOneAndUpdate({ channelID: interaction.channel.id }, { $unset: { priority: 1, priorityCooldown: 1, priorityName: 1 } });
+            Tickets.updateByChannelID(interaction.channel.id, { priority: null, priorityCooldown: null, priorityName: null });
 
             const successEmbed = new Discord.EmbedBuilder()
                 .setColor("Red")
