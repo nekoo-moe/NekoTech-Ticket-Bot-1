@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chọn máy chủ · Heiznerd Tickets</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    :root {
+      --accent-color: <%= accentColorHex %>;
+      --accent-color-rgb: <%= accentColorRgb %>;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-5);
+    }
+    .server-select-wrap { width: 100%; max-width: 560px; }
+    .server-select-header {
+      text-align: center;
+      margin-bottom: var(--sp-6);
+    }
+    .server-select-logo {
+      width: 52px; height: 52px;
+      background: var(--teal-glow);
+      border: 1px solid var(--teal-border);
+      border-radius: var(--r-lg);
+      display: grid; place-items: center;
+      color: var(--teal); font-size: 1.4rem;
+      margin: 0 auto var(--sp-4);
+    }
+    .server-select-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--ink-1);
+      letter-spacing: -0.02em;
+    }
+    .server-select-sub {
+      font-size: 0.875rem;
+      color: var(--ink-3);
+      margin-top: var(--sp-1);
+    }
+    .server-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .server-item {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+      padding: var(--sp-3) var(--sp-4);
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color var(--dur-fast), background var(--dur-fast), transform var(--dur-fast);
+    }
+    .server-item:hover {
+      border-color: var(--teal-border);
+      background: var(--surface-2);
+      transform: translateX(3px);
+    }
+    .server-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--r-md);
+      border: 1.5px solid var(--border);
+      flex-shrink: 0;
+      object-fit: cover;
+    }
+    .server-icon-placeholder {
+      width: 44px; height: 44px;
+      border-radius: var(--r-md);
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      display: grid; place-items: center;
+      color: var(--ink-3); font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .server-info { flex: 1; min-width: 0; }
+    .server-name {
+      font-weight: 600;
+      color: var(--ink-1);
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .server-members { font-size: 0.75rem; color: var(--ink-3); margin-top: 2px; }
+    .server-arrow { color: var(--ink-3); font-size: 0.8rem; flex-shrink: 0; }
+    .server-item:hover .server-arrow { color: var(--teal); }
+
+    .user-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4);
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      margin-bottom: var(--sp-5);
+    }
+    .user-bar-avatar { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--border); }
+    .user-bar-name { font-size: 0.875rem; font-weight: 500; color: var(--ink-1); }
+    .user-bar-logout { margin-left: auto; }
+  </style>
+</head>
+<body>
+  <div class="server-select-wrap">
+    <!-- User bar -->
+    <div class="user-bar">
+      <% if (user.avatar) { %>
+        <img src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.webp?size=64"
+             alt="<%= user.username %>" class="user-bar-avatar">
+      <% } else { %>
+        <div class="user-bar-avatar" style="background:var(--surface-2);display:grid;place-items:center;font-size:0.7rem;color:var(--ink-3);">
+          <i class="fas fa-user"></i>
+        </div>
+      <% } %>
+      <span class="user-bar-name"><%= user.username %></span>
+      <a href="/logout" class="btn btn-ghost btn-sm user-bar-logout">
+        <i class="fas fa-sign-out-alt"></i> Đăng xuất
+      </a>
+    </div>
+
+    <!-- Header -->
+    <div class="server-select-header">
+      <div class="server-select-logo"><i class="fas fa-ticket-alt"></i></div>
+      <h1 class="server-select-title">Chọn máy chủ</h1>
+      <p class="server-select-sub">Chọn máy chủ bạn muốn quản lý ticket.</p>
+    </div>
+
+    <!-- Server list -->
+    <% if (servers.length > 0) { %>
+    <div class="server-list">
+      <% servers.forEach(server => { %>
+      <a href="/select-server/<%= server.id %>" class="server-item">
+        <% if (server.icon) { %>
+          <img src="https://cdn.discordapp.com/icons/<%= server.id %>/<%= server.icon %>.webp?size=64"
+               alt="<%= server.name %>" class="server-icon">
+        <% } else { %>
+          <div class="server-icon-placeholder">
+            <i class="fas fa-server"></i>
+          </div>
+        <% } %>
+        <div class="server-info">
+          <div class="server-name"><%= server.name %></div>
+          <div class="server-members"><%= server.memberCount ? server.memberCount.toLocaleString('vi-VN') + ' thành viên' : 'Máy chủ' %></div>
+        </div>
+        <i class="fas fa-chevron-right server-arrow"></i>
+      </a>
+      <% }); %>
+    </div>
+    <% } else { %>
+    <div class="card">
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fas fa-server"></i></div>
+        <p class="empty-title">Không có máy chủ nào</p>
+        <p class="empty-body">Bot chưa được thêm vào máy chủ nào mà bạn có quyền truy cập, hoặc bạn không có role hỗ trợ trong bất kỳ máy chủ nào.</p>
+      </div>
+    </div>
+    <% } %>
+  </div>
+</body>
+</html>

@@ -1,352 +1,236 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reviews</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-  <style>
-    :root {
-      --accent-color: <%= accentColorHex %>;
-      --accent-color-rgb: <%= accentColorRgb %>;
-    }
+<%
+  pageTitle = 'Đánh giá';
+  activePage = 'reviews';
+%>
+<%- include('partials/shell-open', { user, accentColorHex, accentColorRgb, pageTitle, activePage }) %>
 
-    body {
-      min-height: 100vh;
-      background: radial-gradient(circle at top left, rgba(var(--accent-color-rgb), 0.2) 0%, rgba(var(--accent-color-rgb), 0.15) 50%, rgba(var(--accent-color-rgb), 0.1) 100%), #0f0f13;
-      color: #9ca3af;
-    }
+<style>
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--sp-4);
+  margin-top: var(--sp-5);
+}
+.review-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  transition: border-color var(--dur-base), background var(--dur-base);
+}
+.review-card:hover { border-color: var(--teal-border); background: var(--surface-2); }
+.review-user {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.review-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.review-username { font-weight: 600; color: var(--ink-1); font-size: 0.9rem; }
+.review-date { font-size: 0.75rem; color: var(--ink-3); }
+.review-stars { display: flex; gap: 3px; }
+.review-stars i { font-size: 0.85rem; color: oklch(0.82 0.18 80); }
+.review-stars i.far { color: var(--ink-3); }
+.review-message {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  line-height: 1.6;
+  flex: 1;
+}
+.review-message.truncated { cursor: pointer; }
+.review-message.truncated:hover { color: var(--ink-1); }
+.review-footer {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
 
-    .section {
-      flex: 1;
-    }
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: oklch(0 0 0 / 0.7);
+  z-index: var(--z-backdrop);
+  display: none;
+  place-items: center;
+}
+.modal-backdrop.open { display: grid; }
+.modal-box {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: var(--sp-6);
+  max-width: 480px;
+  width: calc(100% - var(--sp-6));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  animation: modal-in 200ms var(--ease-out) both;
+}
+@keyframes modal-in {
+  from { opacity:0; transform: scale(0.96) translateY(8px); }
+  to   { opacity:1; transform: scale(1) translateY(0); }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-title { font-size: 1rem; font-weight: 700; color: var(--ink-1); }
+.modal-close {
+  width: 28px; height: 28px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  display: grid; place-items: center;
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 0.75rem;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.modal-close:hover { background: var(--surface-3); color: var(--ink-1); }
+.modal-body { font-size: 0.9rem; color: var(--ink-2); line-height: 1.7; }
+</style>
 
-    .welcome-title {
-      color: #ffffff;
-      font-size: 2rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
+<div class="page-header">
+  <h1 class="page-title">Đánh giá
+    <span class="badge badge-muted" style="font-size:0.9rem;vertical-align:middle;margin-left:var(--sp-2);"><%= reviewsData.length %></span>
+  </h1>
+  <p class="page-subtitle">Phản hồi từ người dùng sau khi ticket được đóng.</p>
+</div>
 
-    .welcome-subtitle {
-      color: #9ca3af;
-      font-size: 1.1rem;
-    }
-    .welcome-section {
-      padding: 1rem 1.5rem;
-    }
+<!-- Sort + pagination controls -->
+<div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-2);">
+  <label class="form-label" style="margin:0;white-space:nowrap;">Sắp xếp:</label>
+  <select class="form-select" style="max-width:220px;" id="sortDropdown" onchange="updateSort()">
+    <option value="recent"    <%= sortOption === 'recent'    ? 'selected' : '' %>>Mới nhất</option>
+    <option value="highToLow" <%= sortOption === 'highToLow' ? 'selected' : '' %>>Điểm cao → thấp</option>
+    <option value="lowToHigh" <%= sortOption === 'lowToHigh' ? 'selected' : '' %>>Điểm thấp → cao</option>
+  </select>
+</div>
 
-    .icon-container {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background-color: rgba(var(--accent-color-rgb), 0.2);
-      color: var(--accent-color);
-      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.3);
-    }
-
-    .icon-container i {
-      font-size: 1.25rem;
-    }
-
-    .reviews-container {
-      background-color: #161219;
-      border-radius: 15px;
-      padding: 1.5rem;
-      margin-top: 1.5rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .review-box {
-      background: rgba(22, 18, 25, 0.5);
-      border-radius: 12px;
-      padding: 1.25rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-      transition: transform 0.2s, background-color 0.2s;
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-
-    .review-box:hover {
-      transform: translateY(-5px);
-      background: rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .review-box img {
-      width: 64px;
-      height: 64px;
-      border-radius: 12px;
-      margin-bottom: 1rem;
-      border: 2px solid rgba(var(--accent-color-rgb), 0.3);
-      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.3);
-    }
-
-    .review-box h2 {
-      font-size: 1.2rem;
-      margin-bottom: 0.75rem;
-      color: #ffffff;
-    }
-
-    .rating-stars {
-      color: #FFD700;
-      margin: 0.75rem 0;
-      font-size: 1.25rem;
-    }
-
-    .review-message {
-      margin: 1rem 0;
-      font-size: 0.95rem;
-      color: #e2e8f0;
-      font-style: italic;
-      line-height: 1.5;
-    }
-
-    .meta-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.4rem 0.75rem;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      margin: 0.25rem;
-      background: rgba(22, 18, 25, 0.8);
-      border: 1px solid rgba(var(--accent-color-rgb), 0.2);
-    }
-
-    .meta-tag i {
-      font-size: 0.9rem;
-    }
-
-    .meta-tag.category {
-      background: rgba(52, 152, 219, 0.1);
-      color: #3498db;
-      border-color: rgba(52, 152, 219, 0.2);
-    }
-
-    .meta-tag.messages {
-      background: rgba(46, 204, 113, 0.1);
-      color: #2ecc71;
-      border-color: rgba(46, 204, 113, 0.2);
-    }
-
-    .meta-tag.date {
-      background: rgba(108, 117, 125, 0.1);
-      color: #6c757d;
-      border-color: rgba(108, 117, 125, 0.2);
-    }
-
-    .sort-section {
-      display: flex;
-      justify-content: center;
-      margin: 1rem 0;
-    }
-
-    .select select {
-      background-color: rgba(22, 18, 25, 0.8);
-      color: #ffffff;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.3);
-      border-radius: 8px;
-      padding: 0.5rem 2.5rem 0.5rem 1rem;
-      transition: all 0.3s ease;
-    }
-
-    .select select:hover {
-      border-color: var(--accent-color);
-      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.2);
-    }
-
-    .select select:focus {
-      border-color: var(--accent-color);
-      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.3);
-    }
-
-    .modal-card-head {
-      background-color: #161219;
-      border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.2);
-    }
-
-    .modal-card-body {
-      background-color: #0f0f13;
-      padding: 1.5rem;
-    }
-
-    .modal-card-foot {
-      background-color: #161219;
-      border-top: 1px solid rgba(var(--accent-color-rgb), 0.2);
-    }
-
-    .pagination {
-      margin-top: 2rem;
-      background-color: rgba(22, 18, 25, 0.8);
-      border-radius: 12px;
-      padding: 0.75rem;
-      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.2);
-    }
-
-    .pagination-link {
-      background-color: transparent;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.2);
-      color: #9ca3af;
-      transition: all 0.3s ease;
-    }
-
-    .pagination-link.is-current {
-      background-color: var(--accent-color);
-      border-color: var(--accent-color);
-    }
-
-    .pagination-link:hover {
-      background-color: rgba(var(--accent-color-rgb), 0.2);
-      color: var(--accent-color);
-    }
-
-    @media screen and (max-width: 768px) {
-      .review-box {
-        margin-bottom: 1rem;
-      }
-    }
-  </style>
-</head>
-<body style="display: flex; flex-direction: column; min-height: 100vh; margin: 0;">
-  <%- include('partials/header', { user: user }) %>
-
-  <section class="section pt-4" style="min-height: calc(100vh - 180px);">
-    <div class="container">
-      <!-- Welcome Section -->
-      <div class="welcome-section">
-        <h1 class="welcome-title">
-          Reviews (<%= reviewsData.length %>)
-        </h1>
-        <p class="welcome-subtitle">View all feedback and ratings received for support tickets.</p>
+<% if (reviews.length > 0) { %>
+<div class="review-grid">
+  <% reviews.forEach((review, index) => { %>
+  <div class="review-card">
+    <div class="review-user">
+      <img src="<%= review.userInfo.avatarURL || 'https://cdn.discordapp.com/embed/avatars/0.png' %>"
+           alt="<%= review.userInfo.username %>" class="review-avatar">
+      <div>
+        <div class="review-username"><%= review.userInfo.username %></div>
+        <div class="review-date"><%= new Date(review.createdAt).toLocaleDateString('vi-VN', { day:'2-digit', month:'short', year:'numeric' }) %></div>
       </div>
-
-      <div class="reviews-container">
-        <div class="sort-section">
-          <div class="select is-rounded">
-            <select id="sortDropdown" onchange="updateSort()">
-              <option value="recent" <%= sortOption === 'recent' ? 'selected' : '' %>>Recent</option>
-              <option value="lowToHigh" <%= sortOption === 'lowToHigh' ? 'selected' : '' %>>Low to High Rating</option>
-              <option value="highToLow" <%= sortOption === 'highToLow' ? 'selected' : '' %>>High to Low Rating</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="columns is-multiline">
-          <% reviews.forEach((review, index) => { %>
-            <div class="column is-12-mobile is-6-tablet is-4-desktop">
-              <div class="review-box">
-                <img src="<%= review.userInfo.avatarURL || 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Faenza-avatar-default-symbolic.svg/2048px-Faenza-avatar-default-symbolic.svg.png' %>" alt="Avatar">
-                <h2><%= review.userInfo.username %></h2>
-                <div class="rating-stars">
-                  <% for (let i = 0; i < Math.floor(review.rating); i++) { %>
-                    <i class="fas fa-star"></i>
-                  <% } %>
-                  <% if (review.rating % 1 !== 0) { %>
-                    <i class="fas fa-star-half-alt"></i>
-                  <% } %>
-                  <% for (let i = Math.ceil(review.rating); i < 5; i++) { %>
-                    <i class="far fa-star"></i>
-                  <% } %>
-                </div>
-                <p class="review-message">
-                  <% if (review.reviewMessage && review.reviewMessage.length > 45) { %>
-                    <%= review.reviewMessage.substring(0, 45) %>... 
-                    <span class="read-more" onclick="openModal(<%= index %>)">Read more</span>
-                  <% } else { %>
-                    <%= review.reviewMessage || 'No review message found.' %>
-                  <% } %>
-                </p>
-                <div class="tags">
-                  <span class="meta-tag category">
-                    <i class="fas fa-tags"></i>
-                    <%= review.category %>
-                  </span>
-                  <span class="meta-tag messages">
-                    <i class="fas fa-envelope"></i>
-                    <%= review.totalMessages.toLocaleString('en-US') %>
-                  </span>
-                  <span class="meta-tag date">
-                    <i class="fas fa-calendar-alt"></i>
-                    <%= new Date(review.createdAt).toLocaleDateString('en-US') %>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div id="modal-<%= index %>" class="modal">
-              <div class="modal-background"></div>
-              <div class="modal-card">
-                <header class="modal-card-head">
-                  <p class="modal-card-title" style="color: #ffffff;">
-                    <%= review.userInfo.username %>'s Review
-                  </p>
-                  <button class="delete" aria-label="close" onclick="closeModal(<%= index %>)"></button>
-                </header>
-                <section class="modal-card-body">
-                  <p style="color: #e2e8f0;"><%= review.reviewMessage %></p>
-                </section>
-                <footer class="modal-card-foot">
-                  <button class="button" 
-                          style="background-color: var(--accent-color); color: #ffffff; border: none;" 
-                          onclick="closeModal(<%= index %>)">
-                    Close
-                  </button>
-                </footer>
-              </div>
-            </div>
-          <% }); %>
-        </div>
-
-        <nav class="pagination is-centered" role="navigation" aria-label="pagination">
-          <% if (currentPage > 1) { %>
-            <a href="?page=<%= currentPage - 1 %>&sort=<%= sortOption %>" class="pagination-previous">Previous</a>
-          <% } else { %>
-            <span class="pagination-previous" disabled>Previous</span>
-          <% } %>
-          <% if (currentPage < totalPages) { %>
-            <a href="?page=<%= currentPage + 1 %>&sort=<%= sortOption %>" class="pagination-next">Next</a>
-          <% } else { %>
-            <span class="pagination-next" disabled>Next</span>
-          <% } %>
-
-          <ul class="pagination-list">
-            <% for (let i = 1; i <= totalPages; i++) { %>
-              <li>
-                <a href="?page=<%= i %>&sort=<%= sortOption %>" 
-                   class="pagination-link <%= currentPage === i ? 'is-current' : '' %>">
-                   <%= i %>
-                </a>
-              </li>
-            <% } %>
-          </ul>
-        </nav>
+      <div class="review-stars" style="margin-left:auto;">
+        <% for (let i = 0; i < Math.floor(review.rating); i++) { %><i class="fas fa-star"></i><% } %>
+        <% if (review.rating % 1 !== 0) { %><i class="fas fa-star-half-alt"></i><% } %>
+        <% for (let i = Math.ceil(review.rating); i < 5; i++) { %><i class="far fa-star"></i><% } %>
       </div>
     </div>
-  </section>
 
-  <%- include('partials/footer') %>
+    <% if (review.reviewMessage) { %>
+      <% if (review.reviewMessage.length > 120) { %>
+        <p class="review-message truncated" onclick="openReviewModal(<%= index %>)">
+          "<%= review.reviewMessage.substring(0, 120) %>…"
+          <span style="color:var(--teal);font-size:0.8rem;"> Xem thêm</span>
+        </p>
+      <% } else { %>
+        <p class="review-message">"<%= review.reviewMessage %>"</p>
+      <% } %>
+    <% } else { %>
+      <p class="review-message" style="color:var(--ink-3);font-style:italic;">Không có nhận xét.</p>
+    <% } %>
 
-  <script>
-    function openModal(index) {
-      document.getElementById(`modal-${index}`).classList.add('is-active');
-    }
+    <div class="review-footer">
+      <span class="badge badge-muted"><i class="fas fa-folder" style="margin-right:4px;"></i><%= review.category || 'N/A' %></span>
+      <span class="badge badge-muted"><i class="fas fa-comments" style="margin-right:4px;"></i><%= review.totalMessages || 0 %> tin nhắn</span>
+    </div>
+  </div>
 
-    function closeModal(index) {
-      document.getElementById(`modal-${index}`).classList.remove('is-active');
-    }
+  <!-- Modal data (hidden) -->
+  <template id="review-data-<%= index %>">
+    <div class="review-user" style="margin-bottom:var(--sp-3);">
+      <img src="<%= review.userInfo.avatarURL || 'https://cdn.discordapp.com/embed/avatars/0.png' %>"
+           alt="" class="review-avatar">
+      <div>
+        <div class="review-username"><%= review.userInfo.username %></div>
+        <div class="review-stars" style="margin-top:4px;">
+          <% for (let i = 0; i < Math.floor(review.rating); i++) { %><i class="fas fa-star"></i><% } %>
+          <% if (review.rating % 1 !== 0) { %><i class="fas fa-star-half-alt"></i><% } %>
+          <% for (let i = Math.ceil(review.rating); i < 5; i++) { %><i class="far fa-star"></i><% } %>
+        </div>
+      </div>
+    </div>
+    <p style="color:var(--ink-2);line-height:1.7;">"<%= review.reviewMessage %>"</p>
+  </template>
+  <% }); %>
+</div>
 
-    function updateSort() {
-      const sortOption = document.getElementById('sortDropdown').value;
-      const urlParams = new URLSearchParams(window.location.search);
-      urlParams.set('sort', sortOption);
-      urlParams.set('page', 1);
-      window.location.search = urlParams.toString();
-    }
-  </script>
-</body>
-</html>
+<!-- Pagination -->
+<% if (totalPages > 1) { %>
+<div class="pagination" style="margin-top:var(--sp-6);">
+  <% if (currentPage > 1) { %>
+    <a href="?page=<%= currentPage-1 %>&sort=<%= sortOption %>" class="page-btn"><i class="fas fa-angle-left"></i></a>
+  <% } %>
+  <% for (let i = 1; i <= totalPages; i++) { %>
+    <a href="?page=<%= i %>&sort=<%= sortOption %>" class="page-btn <%= i === currentPage ? 'active' : '' %>"><%= i %></a>
+  <% } %>
+  <% if (currentPage < totalPages) { %>
+    <a href="?page=<%= currentPage+1 %>&sort=<%= sortOption %>" class="page-btn"><i class="fas fa-angle-right"></i></a>
+  <% } %>
+</div>
+<% } %>
+
+<% } else { %>
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon"><i class="fas fa-star"></i></div>
+    <p class="empty-title">Chưa có đánh giá nào</p>
+    <p class="empty-body">Đánh giá sẽ xuất hiện sau khi người dùng hoàn thành ticket và để lại phản hồi.</p>
+  </div>
+</div>
+<% } %>
+
+<!-- Review modal -->
+<div class="modal-backdrop" id="reviewModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Đánh giá đầy đủ</span>
+      <button class="modal-close" onclick="closeReviewModal()" aria-label="Đóng"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+function updateSort() {
+  const s = document.getElementById('sortDropdown').value;
+  const p = new URLSearchParams(window.location.search);
+  p.set('sort', s); p.set('page', 1);
+  window.location.search = p.toString();
+}
+function openReviewModal(index) {
+  const tpl = document.getElementById('review-data-' + index);
+  if (!tpl) return;
+  document.getElementById('modalBody').innerHTML = tpl.innerHTML;
+  document.getElementById('reviewModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeReviewModal() {
+  document.getElementById('reviewModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.getElementById('reviewModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeReviewModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReviewModal(); });
+</script>
+
+<%- include('partials/shell-close') %>

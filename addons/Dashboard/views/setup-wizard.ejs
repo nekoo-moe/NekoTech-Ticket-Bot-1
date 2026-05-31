@@ -1,0 +1,1651 @@
+<%
+  pageTitle = 'Cài đặt';
+  activePage = 'setup';
+%>
+<%- include('partials/shell-open', { user, accentColorHex, accentColorRgb, pageTitle, activePage }) %>
+
+<style>
+/* ── Wizard-specific styles ─────────────────────────────── */
+.wizard-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: var(--sp-5);
+  align-items: start;
+}
+
+.wizard-nav {
+  position: sticky;
+  top: calc(56px + var(--sp-5));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.wizard-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+.wizard-nav-item:hover { background: var(--surface-2); color: var(--ink-1); }
+.wizard-nav-item.active { background: var(--teal-glow); color: var(--teal); border-color: var(--teal-border); }
+.wizard-nav-item.done { color: var(--success); }
+.wizard-nav-item.done .wni-dot { background: var(--success); }
+
+.wni-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background var(--dur-fast);
+}
+.wizard-nav-item.active .wni-dot { background: var(--teal); }
+
+.wizard-content { min-width: 0; }
+
+/* Section panels */
+.setup-section {
+  display: none;
+}
+.setup-section.active { display: block; }
+
+/* Section header */
+.section-head {
+  margin-bottom: var(--sp-5);
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+.section-head h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink-1);
+  letter-spacing: -0.02em;
+}
+.section-head p {
+  font-size: 0.85rem;
+  color: var(--ink-3);
+  margin-top: var(--sp-1);
+}
+
+/* Form grid */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+}
+.form-grid.single { grid-template-columns: 1fr; }
+.form-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+.span-2 { grid-column: span 2; }
+
+/* Category list */
+.category-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.category-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.category-item-name { font-weight: 600; color: var(--ink-1); font-size: 0.875rem; }
+.category-item-key  { font-size: 0.75rem; color: var(--ink-3); font-family: monospace; }
+.category-item-actions { margin-left: auto; display: flex; gap: var(--sp-2); }
+
+/* Discord embed preview */
+.preview-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+.preview-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: var(--sp-3);
+}
+.discord-preview {
+  background: #313338;
+  border-radius: 8px;
+  padding: 16px;
+  font-family: 'gg sans', 'Noto Sans', system-ui, sans-serif;
+}
+.discord-embed {
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #2b2d31;
+  max-width: 520px;
+}
+.embed-accent-bar {
+  width: 4px;
+  flex-shrink: 0;
+  background: var(--preview-color, #59d4b5);
+}
+.embed-body {
+  padding: 12px 16px 12px 12px;
+  flex: 1;
+  min-width: 0;
+}
+.embed-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+.embed-description {
+  font-size: 0.825rem;
+  color: #dbdee1;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.embed-footer {
+  font-size: 0.72rem;
+  color: #949ba4;
+  margin-top: 8px;
+}
+.discord-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.discord-btn {
+  padding: 5px 16px;
+  border-radius: 3px;
+  font-size: 0.825rem;
+  font-weight: 500;
+  cursor: default;
+}
+.discord-btn.green  { background: #248046; color: #fff; }
+.discord-btn.red    { background: #da373c; color: #fff; }
+.discord-btn.gray   { background: #4e5058; color: #fff; }
+.discord-btn.blurple{ background: #5865f2; color: #fff; }
+
+/* Color picker row */
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.color-swatch {
+  width: 36px; height: 36px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Save bar */
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface-1);
+  border-top: 1px solid var(--border);
+  padding: var(--sp-3) var(--sp-5);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-5) calc(-1 * var(--sp-6)) 0;
+  z-index: var(--z-sticky);
+}
+.save-status { font-size: 0.8rem; color: var(--ink-3); }
+
+/* Working hours table */
+.wh-table { width: 100%; border-collapse: collapse; }
+.wh-table th {
+  font-size: 0.75rem; font-weight: 600; color: var(--ink-3);
+  padding: var(--sp-2) var(--sp-3); text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.wh-table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+.wh-table tr:last-child td { border-bottom: none; }
+
+@media (max-width: 900px) {
+  .wizard-layout { grid-template-columns: 1fr; }
+  .wizard-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .form-grid { grid-template-columns: 1fr; }
+  .span-2 { grid-column: span 1; }
+}
+</style>
+
+<div class="page-header">
+  <h1 class="page-title">Cài đặt bot</h1>
+  <p class="page-subtitle">Cấu hình toàn bộ Heiznerd Tickets cho máy chủ của bạn.</p>
+</div>
+
+<div class="wizard-layout">
+  <!-- Left nav -->
+  <nav class="wizard-nav" aria-label="Mục cài đặt">
+    <a class="wizard-nav-item active" data-section="ticket" href="#ticket">
+      <span class="wni-dot"></span>Ticket cơ bản
+    </a>
+    <a class="wizard-nav-item" data-section="category" href="#category">
+      <span class="wni-dot"></span>Danh mục
+    </a>
+    <a class="wizard-nav-item" data-section="transcript" href="#transcript">
+      <span class="wni-dot"></span>Transcript
+    </a>
+    <a class="wizard-nav-item" data-section="claiming" href="#claiming">
+      <span class="wni-dot"></span>Claiming
+    </a>
+    <a class="wizard-nav-item" data-section="alert" href="#alert">
+      <span class="wni-dot"></span>Cảnh báo
+    </a>
+    <a class="wizard-nav-item" data-section="workinghours" href="#workinghours">
+      <span class="wni-dot"></span>Giờ làm việc
+    </a>
+    <a class="wizard-nav-item" data-section="review" href="#review">
+      <span class="wni-dot"></span>Đánh giá
+    </a>
+    <a class="wizard-nav-item" data-section="suggestion" href="#suggestion">
+      <span class="wni-dot"></span>Đề xuất
+    </a>
+    <a class="wizard-nav-item" data-section="channelstats" href="#channelstats">
+      <span class="wni-dot"></span>Kênh thống kê
+    </a>
+    <a class="wizard-nav-item" data-section="archive" href="#archive">
+      <span class="wni-dot"></span>Lưu trữ
+    </a>
+    <a class="wizard-nav-item" data-section="vietqr" href="#vietqr">
+      <span class="wni-dot"></span>VietQR
+    </a>
+    <a class="wizard-nav-item" data-section="panels" href="#panels">
+      <span class="wni-dot"></span>Panels
+    </a>
+  </nav>
+
+  <!-- Right content -->
+  <div class="wizard-content">
+
+    <!-- ── TICKET CƠ BẢN ─────────────────────────────────── -->
+    <div class="setup-section active" id="section-ticket">
+      <div class="section-head">
+        <h2>Ticket cơ bản</h2>
+        <p>Cài đặt chung cho hệ thống ticket: kênh log, giới hạn, màu sắc và role staff.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="logsChannel">Kênh log mặc định</label>
+          <input type="text" id="logsChannel" class="form-input" placeholder="ID kênh Discord"
+                 value="<%= cfg['ticket.logsChannelID'] || '' %>">
+          <span class="form-hint">ID kênh text để ghi log tất cả ticket.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="maxTickets">Số ticket tối đa / người</label>
+          <input type="number" id="maxTickets" class="form-input" min="1" max="10"
+                 value="<%= cfg['ticket.maxTickets'] || 1 %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="deleteTime">Thời gian xóa sau khi đóng (giây)</label>
+          <input type="number" id="deleteTime" class="form-input" min="0" max="60"
+                 value="<%= cfg['ticket.deleteTime'] || 5 %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cooldown">Cooldown tạo ticket (giây, 0 = tắt)</label>
+          <input type="number" id="cooldown" class="form-input" min="0"
+                 value="<%= cfg['ticket.cooldown'] || 0 %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="embedColor">Màu embed</label>
+          <div class="color-row">
+            <input type="color" id="embedColorPicker" class="color-swatch"
+                   value="<%= cfg['bot.embedColor'] || '#59d4b5' %>"
+                   oninput="document.getElementById('embedColor').value=this.value;updatePreviewColor(this.value)">
+            <input type="text" id="embedColor" class="form-input" placeholder="#59d4b5"
+                   value="<%= cfg['bot.embedColor'] || '#59d4b5' %>"
+                   oninput="document.getElementById('embedColorPicker').value=this.value;updatePreviewColor(this.value)">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="staffRoles">Staff roles (ID cách nhau bằng dấu phẩy)</label>
+          <input type="text" id="staffRoles" class="form-input" placeholder="123456789, 987654321"
+                 value="<%= (cfg['staffRoles'] || []).join(', ') %>">
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label" for="channelTopic">Chủ đề kênh ticket</label>
+          <input type="text" id="channelTopic" class="form-input"
+                 placeholder="Người tạo: {username} | Danh mục: {category}"
+                 value="<%= cfg['ticket.channelTopic'] || 'Người tạo: {username} | Danh mục: {category}' %>">
+          <span class="form-hint">Biến: {username}, {category}</span>
+        </div>
+      </div>
+
+      <!-- Toggles -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);">
+        <label class="form-toggle">
+          <input type="checkbox" id="mentionAuthor" <%= cfg['ticket.mentionAuthor'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Mention người tạo khi mở ticket</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="restrictClose" <%= cfg['ticket.restrictClose'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Chỉ staff mới được đóng ticket</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="closeReason" <%= cfg['ticket.closeReason'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Yêu cầu lý do khi đóng</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="selectMenu" <%= cfg['ticket.selectMenu'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Dùng dropdown thay vì nút</span>
+        </label>
+      </div>
+
+      <!-- Embed preview -->
+      <div class="preview-panel">
+        <div class="preview-label">Xem trước embed ticket</div>
+        <div class="discord-preview">
+          <div class="discord-embed" id="ticketEmbedPreview">
+            <div class="embed-accent-bar" id="previewAccentBar" style="background:<%= cfg['bot.embedColor'] || '#59d4b5' %>;"></div>
+            <div class="embed-body">
+              <div class="embed-title" id="previewEmbedTitle">Ticket Hỗ Trợ</div>
+              <div class="embed-description" id="previewEmbedDesc">> Cảm ơn bạn đã liên hệ.
+> Vui lòng mô tả vấn đề và chờ nhân viên hỗ trợ.</div>
+              <div class="discord-buttons">
+                <span class="discord-btn red">🔒 Đóng Ticket</span>
+                <span class="discord-btn gray">👋 Nhận Ticket</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('ticket')">
+          <i class="fas fa-save"></i> Lưu cài đặt ticket
+        </button>
+        <span class="save-status" id="save-status-ticket"></span>
+      </div>
+    </div>
+
+    <!-- ── DANH MỤC ──────────────────────────────────────── -->
+    <div class="setup-section" id="section-category">
+      <div class="section-head">
+        <h2>Danh mục ticket</h2>
+        <p>Tạo và quản lý các loại ticket. Mỗi danh mục có nút/dropdown riêng trên panel.</p>
+      </div>
+
+      <!-- Category list -->
+      <div class="category-list" id="categoryList">
+        <% if (categories && categories.length > 0) { %>
+          <% categories.forEach(cat => { %>
+          <div class="category-item" data-key="<%= cat.categoryKey %>">
+            <div>
+              <div class="category-item-name"><%= cat.categoryEmoji ? cat.categoryEmoji + ' ' : '' %><%= cat.categoryName %></div>
+              <div class="category-item-key"><%= cat.categoryKey %></div>
+            </div>
+            <div class="category-item-actions">
+              <button class="btn btn-ghost btn-sm" onclick="toggleEditCategory('<%= cat.categoryKey %>')">
+                <i class="fas fa-pen"></i> Sửa
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="deleteCategory('<%= cat.categoryKey %>')">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Inline edit form (hidden by default) -->
+          <div class="category-edit-form" id="edit-<%= cat.categoryKey %>" style="display:none;background:var(--surface-2);border:1px solid var(--teal-border);border-radius:var(--r-md);padding:var(--sp-4);margin-top:calc(-1 * var(--sp-2));margin-bottom:var(--sp-2);">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--teal);margin-bottom:var(--sp-3);">Chỉnh sửa: <%= cat.categoryName %></div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Tên hiển thị</label>
+                <input type="text" class="form-input" id="edit-name-<%= cat.categoryKey %>" value="<%= cat.categoryName %>">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Emoji</label>
+                <input type="text" class="form-input" id="edit-emoji-<%= cat.categoryKey %>" value="<%= cat.categoryEmoji || '' %>">
+              </div>
+              <div class="form-group">
+                <label class="form-label">ID Discord category channel</label>
+                <input type="text" class="form-input" id="edit-parent-<%= cat.categoryKey %>" value="<%= cat.parentCategoryID %>">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Support roles (ID cách nhau bằng dấu phẩy)</label>
+                <input type="text" class="form-input" id="edit-roles-<%= cat.categoryKey %>" value="<%= (cat.supportRoles || []).join(', ') %>">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Kênh log riêng (ID, tùy chọn)</label>
+                <input type="text" class="form-input" id="edit-logs-<%= cat.categoryKey %>" value="<%= cat.logsChannelID || '' %>">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tên kênh ticket</label>
+                <input type="text" class="form-input" id="edit-chname-<%= cat.categoryKey %>" value="<%= cat.channelName || 'ticket-{username}' %>">
+              </div>
+              <div class="form-group span-2">
+                <label class="form-label">Tiêu đề embed khi tạo ticket</label>
+                <input type="text" class="form-input" id="edit-title-<%= cat.categoryKey %>"
+                       value="<%= cat.embedTitle || '' %>"
+                       oninput="updateEditPreview('<%= cat.categoryKey %>')">
+              </div>
+              <div class="form-group span-2">
+                <label class="form-label">Nội dung embed khi tạo ticket</label>
+                <textarea class="form-textarea" id="edit-msg-<%= cat.categoryKey %>"
+                          oninput="updateEditPreview('<%= cat.categoryKey %>')"
+                          rows="3"><%= cat.embedMessage || '' %></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Màu nút</label>
+                <select class="form-select" id="edit-color-<%= cat.categoryKey %>" onchange="updateEditPreview('<%= cat.categoryKey %>')">
+                  <option value="Green"   <%= cat.buttonColor === 'Green'   ? 'selected' : '' %>>🟢 Xanh lá</option>
+                  <option value="Blurple" <%= cat.buttonColor === 'Blurple' ? 'selected' : '' %>>🔵 Xanh dương</option>
+                  <option value="Gray"    <%= cat.buttonColor === 'Gray'    ? 'selected' : '' %>>⚫ Xám</option>
+                  <option value="Red"     <%= cat.buttonColor === 'Red'     ? 'selected' : '' %>>🔴 Đỏ</option>
+                </select>
+              </div>
+            </div>
+            <label class="form-toggle" style="margin-top:var(--sp-3);">
+              <input type="checkbox" id="edit-mention-<%= cat.categoryKey %>" <%= cat.mentionSupportRoles ? 'checked' : '' %>>
+              <span class="toggle-track"></span>
+              <span style="font-size:0.875rem;color:var(--ink-2);">Mention role khi tạo ticket</span>
+            </label>
+
+            <!-- Edit preview -->
+            <div class="preview-panel" style="margin-top:var(--sp-4);">
+              <div class="preview-label">Xem trước</div>
+              <div class="discord-preview">
+                <div class="discord-embed">
+                  <div class="embed-accent-bar" id="edit-preview-bar-<%= cat.categoryKey %>" style="background:<%= cfg['bot.embedColor'] || '#59d4b5' %>;"></div>
+                  <div class="embed-body">
+                    <div class="embed-title" id="edit-preview-title-<%= cat.categoryKey %>"><%= cat.embedTitle || cat.categoryName %></div>
+                    <div class="embed-description" id="edit-preview-desc-<%= cat.categoryKey %>"><%= cat.embedMessage || '' %></div>
+                    <div class="discord-buttons">
+                      <span class="discord-btn red">🔒 Đóng Ticket</span>
+                      <span class="discord-btn gray">👋 Nhận Ticket</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="margin-top:12px;">
+                  <div style="font-size:0.72rem;color:#949ba4;margin-bottom:6px;">Nút trên panel:</div>
+                  <div class="discord-buttons">
+                    <span class="discord-btn green" id="edit-preview-btn-<%= cat.categoryKey %>">
+                      <%= cat.categoryEmoji ? cat.categoryEmoji + ' ' : '🎫 ' %><%= cat.categoryName %>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-4);">
+              <button class="btn btn-primary" onclick="saveEditCategory('<%= cat.categoryKey %>')">
+                <i class="fas fa-save"></i> Lưu thay đổi
+              </button>
+              <button class="btn btn-ghost" onclick="toggleEditCategory('<%= cat.categoryKey %>')">
+                Hủy
+              </button>
+            </div>
+          </div>
+          <% }); %>
+        <% } else { %>
+          <div class="empty-state" style="padding:var(--sp-6) 0;">
+            <div class="empty-icon"><i class="fas fa-folder-plus"></i></div>
+            <p class="empty-title">Chưa có danh mục nào</p>
+            <p class="empty-body">Tạo ít nhất một danh mục để bot có thể nhận ticket.</p>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- Add category form -->
+      <div class="card" style="margin-top:var(--sp-5);border-color:var(--teal-border);">
+        <div class="card-header">
+          <div class="card-icon"><i class="fas fa-plus"></i></div>
+          <h3 class="card-title">Thêm danh mục mới</h3>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="catKey">Key (chữ thường, gạch ngang)</label>
+            <input type="text" id="catKey" class="form-input" placeholder="ho-tro">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catName">Tên hiển thị</label>
+            <input type="text" id="catName" class="form-input" placeholder="Hỗ Trợ"
+                   oninput="updateCatPreview()">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catParent">ID Discord category channel</label>
+            <input type="text" id="catParent" class="form-input" placeholder="123456789012345678">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catRoles">Support roles (ID cách nhau bằng dấu phẩy)</label>
+            <input type="text" id="catRoles" class="form-input" placeholder="123456789, 987654321">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catEmoji">Emoji (tùy chọn)</label>
+            <input type="text" id="catEmoji" class="form-input" placeholder="🎫" oninput="updateCatPreview()">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catColor">Màu nút</label>
+            <select id="catColor" class="form-select" onchange="updateCatPreview()">
+              <option value="Green">🟢 Xanh lá</option>
+              <option value="Blurple">🔵 Xanh dương</option>
+              <option value="Gray">⚫ Xám</option>
+              <option value="Red">🔴 Đỏ</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catLogsChannel">Kênh log riêng (tùy chọn)</label>
+            <input type="text" id="catLogsChannel" class="form-input" placeholder="ID kênh">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catChannelName">Tên kênh ticket</label>
+            <input type="text" id="catChannelName" class="form-input" placeholder="ticket-{username}"
+                   value="ticket-{username}">
+            <span class="form-hint">Biến: {username}, {user-id}, {total-tickets}</span>
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="catEmbedTitle">Tiêu đề embed khi tạo ticket</label>
+            <input type="text" id="catEmbedTitle" class="form-input"
+                   placeholder="Ticket Hỗ Trợ ({category})" oninput="updateCatPreview()">
+            <span class="form-hint">Biến: {category}</span>
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="catEmbedMsg">Nội dung embed khi tạo ticket</label>
+            <textarea id="catEmbedMsg" class="form-textarea" rows="3"
+                      placeholder="> Cảm ơn bạn đã liên hệ.&#10;> Vui lòng mô tả vấn đề và chờ nhân viên hỗ trợ."
+                      oninput="updateCatPreview()"></textarea>
+            <span class="form-hint">Biến: {user}, {createdAt}</span>
+          </div>
+        </div>
+
+        <!-- Category embed preview -->
+        <div class="preview-panel">
+          <div class="preview-label">Xem trước embed khi tạo ticket</div>
+          <div class="discord-preview">
+            <div class="discord-embed">
+              <div class="embed-accent-bar" id="catPreviewBar" style="background:<%= cfg['bot.embedColor'] || '#59d4b5' %>;"></div>
+              <div class="embed-body">
+                <div class="embed-title" id="catPreviewTitle">Ticket Hỗ Trợ</div>
+                <div class="embed-description" id="catPreviewDesc">> Cảm ơn bạn đã liên hệ.
+> Vui lòng mô tả vấn đề và chờ nhân viên hỗ trợ.</div>
+                <div class="discord-buttons">
+                  <span class="discord-btn red" id="catPreviewCloseBtn">🔒 Đóng Ticket</span>
+                  <span class="discord-btn gray">👋 Nhận Ticket</span>
+                </div>
+              </div>
+            </div>
+            <!-- Panel button preview -->
+            <div style="margin-top:12px;">
+              <div style="font-size:0.72rem;color:#949ba4;margin-bottom:6px;">Nút trên panel:</div>
+              <div class="discord-buttons">
+                <span class="discord-btn green" id="catPreviewPanelBtn">🎫 Hỗ Trợ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:var(--sp-4);">
+          <button class="btn btn-primary" onclick="createCategory()">
+            <i class="fas fa-plus"></i> Tạo danh mục
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRANSCRIPT ────────────────────────────────────── -->
+    <div class="setup-section" id="section-transcript">
+      <div class="section-head">
+        <h2>Transcript</h2>
+        <p>Cài đặt cách lưu lịch sử hội thoại khi ticket đóng.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="transcriptType">Loại transcript</label>
+          <select id="transcriptType" class="form-select">
+            <option value="HTML" <%= (cfg['transcript.type'] || 'HTML') === 'HTML' ? 'selected' : '' %>>HTML (khuyến nghị, xem được trên Dashboard)</option>
+            <option value="TXT" <%= cfg['transcript.type'] === 'TXT' ? 'selected' : '' %>>TXT (văn bản thuần)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="transcriptMsgReq">Số tin nhắn tối thiểu để tạo transcript</label>
+          <input type="number" id="transcriptMsgReq" class="form-input" min="0"
+                 value="<%= cfg['transcript.messagesRequirement'] || 1 %>">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);">
+        <label class="form-toggle">
+          <input type="checkbox" id="transcriptSaveFolder" <%= cfg['transcript.saveInFolder'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Lưu transcript vào thư mục local</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="transcriptSaveImages" <%= cfg['transcript.saveImages'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Lưu ảnh trong transcript (tăng dung lượng)</span>
+        </label>
+      </div>
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('transcript')">
+          <i class="fas fa-save"></i> Lưu cài đặt transcript
+        </button>
+        <span class="save-status" id="save-status-transcript"></span>
+      </div>
+    </div>
+
+    <!-- ── CLAIMING ──────────────────────────────────────── -->
+    <div class="setup-section" id="section-claiming">
+      <div class="section-head">
+        <h2>Claiming</h2>
+        <p>Hệ thống nhận ticket: staff nhận ticket để xử lý độc quyền.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="claimMaxPerStaff">Số ticket tối đa mỗi staff nhận (0 = không giới hạn)</label>
+          <input type="number" id="claimMaxPerStaff" class="form-input" min="0"
+                 value="<%= cfg['claiming.maxPerStaff'] || 3 %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="claimMoveCategory">Category để chuyển ticket đã nhận (ID, tùy chọn)</label>
+          <input type="text" id="claimMoveCategory" class="form-input" placeholder="ID Discord category"
+                 value="<%= cfg['claiming.moveCategoryID'] || '' %>">
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label" for="autoClaimMsg">Tin nhắn khi auto-claim</label>
+          <input type="text" id="autoClaimMsg" class="form-input"
+                 placeholder="Ticket này đã được tự động nhận bởi {user}"
+                 value="<%= cfg['claiming.autoClaim.message'] || 'Ticket này đã được tự động nhận bởi {user}' %>">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);">
+        <label class="form-toggle">
+          <input type="checkbox" id="claimEnabled" <%= cfg['claiming.enabled'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Bật hệ thống claiming</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="claimLockNew" <%= cfg['claiming.lockNewTickets'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Khóa ticket mới cho đến khi được nhận</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="autoClaimEnabled" <%= cfg['claiming.autoClaim.enabled'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Tự động nhận khi staff phản hồi</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="autoClaimShowMsg" <%= cfg['claiming.autoClaim.showMessage'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Hiển thị tin nhắn khi auto-claim</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="claimMoveEnabled" <%= cfg['claiming.moveEnabled'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Chuyển ticket đã nhận sang category riêng</span>
+        </label>
+      </div>
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('claiming')">
+          <i class="fas fa-save"></i> Lưu cài đặt claiming
+        </button>
+        <span class="save-status" id="save-status-claiming"></span>
+      </div>
+    </div>
+
+    <!-- ── ALERT ─────────────────────────────────────────── -->
+    <div class="setup-section" id="section-alert">
+      <div class="section-head">
+        <h2>Cảnh báo không hoạt động</h2>
+        <p>Tự động cảnh báo và đóng ticket khi không có phản hồi trong thời gian dài.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="alertTime">Thời gian trước khi đóng</label>
+          <input type="text" id="alertTime" class="form-input" placeholder="12h"
+                 value="<%= cfg['alert.time'] || '12h' %>">
+          <span class="form-hint">Ví dụ: 12h, 3d, 30m</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="autoAlertInactiveTime">Thời gian không hoạt động trước auto-alert</label>
+          <input type="text" id="autoAlertInactiveTime" class="form-input" placeholder="3d"
+                 value="<%= cfg['alert.autoAlert.inactiveTime'] || '3d' %>">
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label" for="alertMsg">Tin nhắn cảnh báo trong ticket</label>
+          <textarea id="alertMsg" class="form-textarea" rows="3"
+                    oninput="updateAlertPreview()"
+                    placeholder="Ticket này đã không hoạt động trong {inactive-time}..."
+                    ><%= cfg['alert.message'] || 'Ticket này đã không hoạt động trong ``{inactive-time}`` và sẽ tự động đóng vào **{time}** nếu không có phản hồi.' %></textarea>
+          <span class="form-hint">Biến: {time}, {inactive-time}</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);">
+        <label class="form-toggle">
+          <input type="checkbox" id="alertEnabled" <%= cfg['alert.enabled'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Bật hệ thống cảnh báo</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="alertDmUser" <%= cfg['alert.dmUser'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">DM người dùng khi sắp đóng</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="autoAlertEnabled" <%= cfg['alert.autoAlert.enabled'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Tự động gửi cảnh báo khi không hoạt động</span>
+        </label>
+      </div>
+
+      <!-- Alert preview -->
+      <div class="preview-panel">
+        <div class="preview-label">Xem trước tin nhắn cảnh báo</div>
+        <div class="discord-preview">
+          <div class="discord-embed">
+            <div class="embed-accent-bar" style="background:#da373c;"></div>
+            <div class="embed-body">
+              <div class="embed-title">⏳ Cảnh báo không hoạt động</div>
+              <div class="embed-description" id="alertPreviewMsg"><%= cfg['alert.message'] || 'Ticket này đã không hoạt động trong ``3 ngày`` và sẽ tự động đóng vào **&lt;t:1234567890:R&gt;** nếu không có phản hồi.' %></div>
+              <div class="discord-buttons">
+                <span class="discord-btn red">🔒 Đóng Ticket</span>
+                <span class="discord-btn gray">🚫 Hủy đóng</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('alert')">
+          <i class="fas fa-save"></i> Lưu cài đặt cảnh báo
+        </button>
+        <span class="save-status" id="save-status-alert"></span>
+      </div>
+    </div>
+
+    <!-- ── WORKING HOURS ─────────────────────────────────── -->
+    <div class="setup-section" id="section-workinghours">
+      <div class="section-head">
+        <h2>Giờ làm việc</h2>
+        <p>Giới hạn thời gian tạo ticket theo lịch làm việc của team.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="whTimezone">Múi giờ</label>
+          <input type="text" id="whTimezone" class="form-input" placeholder="Asia/Ho_Chi_Minh"
+                 value="<%= cfg['workingHours.timezone'] || 'Asia/Ho_Chi_Minh' %>">
+          <span class="form-hint">Ví dụ: Asia/Ho_Chi_Minh, Asia/Bangkok, UTC+7</span>
+        </div>
+        <div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);margin-bottom:var(--sp-5);">
+        <label class="form-toggle">
+          <input type="checkbox" id="whEnabled" <%= cfg['workingHours.enabled'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Bật giờ làm việc</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="whAllowOutside" <%= cfg['workingHours.allowOutside'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Cho phép tạo ticket ngoài giờ</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="whSendNotice" <%= cfg['workingHours.sendNotice'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Gửi thông báo khi tạo ngoài giờ</span>
+        </label>
+      </div>
+
+      <!-- Schedule table -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon"><i class="fas fa-calendar-week"></i></div>
+          <h3 class="card-title">Lịch làm việc</h3>
+        </div>
+        <table class="wh-table">
+          <thead>
+            <tr>
+              <th>Ngày</th>
+              <th>Giờ làm việc</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% const days = [
+              ['Monday','Thứ Hai'], ['Tuesday','Thứ Ba'], ['Wednesday','Thứ Tư'],
+              ['Thursday','Thứ Năm'], ['Friday','Thứ Sáu'], ['Saturday','Thứ Bảy'], ['Sunday','Chủ Nhật']
+            ];
+            const schedule = cfg['workingHours.schedule'] || {};
+            days.forEach(([day, label]) => {
+              const val = schedule[day] || 'closed';
+              const isClosed = val === 'closed';
+            %>
+            <tr>
+              <td style="font-weight:500;color:var(--ink-1);"><%= label %></td>
+              <td>
+                <input type="text" class="form-input" id="wh-<%= day %>"
+                       value="<%= isClosed ? '' : val %>"
+                       placeholder="08:00-17:00"
+                       style="max-width:160px;"
+                       <%= isClosed ? 'disabled' : '' %>>
+              </td>
+              <td>
+                <label class="form-toggle">
+                  <input type="checkbox" id="wh-open-<%= day %>"
+                         <%= !isClosed ? 'checked' : '' %>
+                         onchange="toggleDay('<%= day %>')">
+                  <span class="toggle-track"></span>
+                  <span style="font-size:0.8rem;color:var(--ink-3);"><%= isClosed ? 'Đóng' : 'Mở' %></span>
+                </label>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('workinghours')">
+          <i class="fas fa-save"></i> Lưu giờ làm việc
+        </button>
+        <span class="save-status" id="save-status-workinghours"></span>
+      </div>
+    </div>
+
+    <!-- ── REVIEW ─────────────────────────────────────────── -->
+    <div class="setup-section" id="section-review">
+      <div class="section-head">
+        <h2>Đánh giá</h2>
+        <p>Cho phép người dùng đánh giá chất lượng hỗ trợ sau khi ticket đóng.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="reviewChannelID">Kênh đăng đánh giá công khai (ID, tùy chọn)</label>
+          <input type="text" id="reviewChannelID" class="form-input" placeholder="ID kênh"
+                 value="<%= cfg['review.channel.channelID'] || '' %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reviewMinWords">Số từ tối thiểu cho nhận xét</label>
+          <input type="number" id="reviewMinWords" class="form-input" min="0"
+                 value="<%= cfg['review.minimumWords'] || 20 %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reviewMaxWords">Số từ tối đa cho nhận xét</label>
+          <input type="number" id="reviewMaxWords" class="form-input" min="1"
+                 value="<%= cfg['review.maximumWords'] || 250 %>">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);">
+        <label class="form-toggle">
+          <input type="checkbox" id="reviewEnabled" <%= cfg['review.enabled'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Bật hệ thống đánh giá</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="reviewAskWhy" <%= cfg['review.askWhyModal'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Hỏi lý do đánh giá (modal)</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="reviewChannelEnabled" <%= cfg['review.channel.enabled'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Đăng đánh giá lên kênh công khai</span>
+        </label>
+      </div>
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('review')">
+          <i class="fas fa-save"></i> Lưu cài đặt đánh giá
+        </button>
+        <span class="save-status" id="save-status-review"></span>
+      </div>
+    </div>
+
+    <!-- ── SUGGESTION ────────────────────────────────────── -->
+    <div class="setup-section" id="section-suggestion">
+      <div class="section-head">
+        <h2>Đề xuất</h2>
+        <p>Cho phép thành viên gửi đề xuất và bình chọn.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="suggestionChannelID">Kênh đăng đề xuất (ID)</label>
+          <input type="text" id="suggestionChannelID" class="form-input" placeholder="ID kênh"
+                 value="<%= cfg['suggestion.channelID'] || '' %>">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);">
+        <label class="form-toggle">
+          <input type="checkbox" id="suggestionEnabled" <%= cfg['suggestion.enabled'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Bật hệ thống đề xuất</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="suggestionThreads" <%= cfg['suggestion.createThreads'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Tạo thread thảo luận cho mỗi đề xuất</span>
+        </label>
+      </div>
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('suggestion')">
+          <i class="fas fa-save"></i> Lưu cài đặt đề xuất
+        </button>
+        <span class="save-status" id="save-status-suggestion"></span>
+      </div>
+    </div>
+
+    <!-- ── CHANNEL STATS ─────────────────────────────────── -->
+    <div class="setup-section" id="section-channelstats">
+      <div class="section-head">
+        <h2>Kênh thống kê</h2>
+        <p>Voice channel tự động cập nhật số liệu mỗi 5 phút.</p>
+      </div>
+      <% const statChannels = [
+        ['totalTickets','Tổng ticket','{total-tickets}'],
+        ['openTickets','Ticket đang mở','{open-tickets}'],
+        ['averageRating','Đánh giá trung bình','⭐{average-rating}/5.0'],
+        ['memberCount','Số thành viên','{member-count}']
+      ]; %>
+      <% statChannels.forEach(([key, label, placeholder]) => { %>
+      <div class="card" style="margin-bottom:var(--sp-3);">
+        <div style="display:flex;align-items:center;gap:var(--sp-4);">
+          <label class="form-toggle" style="flex-shrink:0;">
+            <input type="checkbox" id="cs-<%= key %>-enabled"
+                   <%= cfg['channelStats.' + key + '.enabled'] ? 'checked' : '' %>>
+            <span class="toggle-track"></span>
+          </label>
+          <div style="flex:1;">
+            <div style="font-size:0.875rem;font-weight:600;color:var(--ink-1);margin-bottom:var(--sp-2);"><%= label %></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+              <div class="form-group">
+                <label class="form-label">ID Voice Channel</label>
+                <input type="text" id="cs-<%= key %>-channel" class="form-input" placeholder="ID kênh voice"
+                       value="<%= cfg['channelStats.' + key + '.channelID'] || '' %>">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tên kênh</label>
+                <input type="text" id="cs-<%= key %>-name" class="form-input" placeholder="<%= placeholder %>"
+                       value="<%= cfg['channelStats.' + key + '.channelName'] || placeholder %>">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% }); %>
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('channelstats')">
+          <i class="fas fa-save"></i> Lưu kênh thống kê
+        </button>
+        <span class="save-status" id="save-status-channelstats"></span>
+      </div>
+    </div>
+
+    <!-- ── ARCHIVE ───────────────────────────────────────── -->
+    <div class="setup-section" id="section-archive">
+      <div class="section-head">
+        <h2>Lưu trữ ticket</h2>
+        <p>Lưu trữ ticket thay vì xóa ngay khi đóng. Staff có thể mở lại hoặc xóa sau.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="archiveCategoryID">ID Discord category cho ticket lưu trữ</label>
+          <input type="text" id="archiveCategoryID" class="form-input" placeholder="ID category"
+                 value="<%= cfg['archive.categoryID'] || '' %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="archivePrefix">Tiền tố tên kênh khi lưu trữ</label>
+          <input type="text" id="archivePrefix" class="form-input" placeholder="archived-"
+                 value="<%= cfg['archive.channelNamePrefix'] || 'archived-' %>">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);">
+        <label class="form-toggle">
+          <input type="checkbox" id="archiveEnabled" <%= cfg['archive.enabled'] ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Bật hệ thống lưu trữ</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="archiveHideCreator" <%= cfg['archive.hideFromCreator'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Ẩn ticket lưu trữ khỏi người tạo</span>
+        </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="archiveMoveCategory" <%= cfg['archive.moveToCategory'] !== false ? 'checked' : '' %>>
+          <span class="toggle-track"></span>
+          <span style="font-size:0.875rem;color:var(--ink-2);">Chuyển ticket sang category lưu trữ</span>
+        </label>
+      </div>
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('archive')">
+          <i class="fas fa-save"></i> Lưu cài đặt lưu trữ
+        </button>
+        <span class="save-status" id="save-status-archive"></span>
+      </div>
+    </div>
+
+    <!-- ── VIETQR ─────────────────────────────────────────── -->
+    <div class="setup-section" id="section-vietqr">
+      <div class="section-head">
+        <h2>VietQR</h2>
+        <p>Cấu hình thanh toán qua mã QR ngân hàng Việt Nam. Dùng lệnh <code style="background:var(--surface-3);padding:2px 6px;border-radius:4px;font-size:0.8rem;">/invoice</code> để gửi hóa đơn.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="vietqrBankId">Mã ngân hàng</label>
+          <input type="text" id="vietqrBankId" class="form-input" placeholder="970422"
+                 value="<%= cfg['vietqr.bankId'] || '' %>" oninput="updateVietQRPreview()">
+          <span class="form-hint">Ví dụ: 970422 (MB Bank), 970436 (Vietcombank), 970415 (Vietinbank)</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="vietqrAccountNo">Số tài khoản</label>
+          <input type="text" id="vietqrAccountNo" class="form-input" placeholder="0123456789"
+                 value="<%= cfg['vietqr.accountNo'] || '' %>" oninput="updateVietQRPreview()">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="vietqrAccountName">Tên chủ tài khoản</label>
+          <input type="text" id="vietqrAccountName" class="form-input" placeholder="NGUYEN VAN A"
+                 value="<%= cfg['vietqr.accountName'] || '' %>" oninput="updateVietQRPreview()">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="vietqrTemplate">Template QR</label>
+          <select id="vietqrTemplate" class="form-select" onchange="updateVietQRPreview()">
+            <option value="compact2" <%= (cfg['vietqr.template'] || 'compact2') === 'compact2' ? 'selected' : '' %>>compact2 (khuyến nghị)</option>
+            <option value="compact" <%= cfg['vietqr.template'] === 'compact' ? 'selected' : '' %>>compact</option>
+            <option value="qr_only" <%= cfg['vietqr.template'] === 'qr_only' ? 'selected' : '' %>>qr_only</option>
+            <option value="print" <%= cfg['vietqr.template'] === 'print' ? 'selected' : '' %>>print</option>
+          </select>
+        </div>
+      </div>
+      <label class="form-toggle" style="margin-top:var(--sp-4);">
+        <input type="checkbox" id="vietqrOnlyTickets" <%= cfg['vietqr.onlyInTickets'] ? 'checked' : '' %>>
+        <span class="toggle-track"></span>
+        <span style="font-size:0.875rem;color:var(--ink-2);">Chỉ dùng lệnh /invoice trong kênh ticket</span>
+      </label>
+
+      <!-- VietQR preview -->
+      <div class="preview-panel">
+        <div class="preview-label">Xem trước hóa đơn VietQR</div>
+        <div class="discord-preview">
+          <div class="discord-embed">
+            <div class="embed-accent-bar" style="background:<%= cfg['bot.embedColor'] || '#59d4b5' %>;"></div>
+            <div class="embed-body">
+              <div class="embed-title">💳 Hóa đơn thanh toán VietQR</div>
+              <div class="embed-description">Vui lòng quét mã QR bên dưới để thanh toán.</div>
+              <div style="margin-top:8px;font-size:0.8rem;color:#dbdee1;">
+                <div>👤 Người nhận: <strong>@user</strong></div>
+                <div>💰 Số tiền: <strong id="vqPreviewAmount">100,000 VND</strong></div>
+                <div>📋 Dịch vụ: <strong>Dịch vụ hỗ trợ</strong></div>
+                <div>🏦 Ngân hàng: <strong id="vqPreviewBank"><%= cfg['vietqr.accountName'] || 'Chưa cấu hình' %></strong></div>
+              </div>
+              <div style="margin-top:10px;background:#1e1f22;border-radius:6px;padding:8px;text-align:center;">
+                <div id="vqPreviewQR" style="font-size:0.75rem;color:#949ba4;">
+                  <% if (cfg['vietqr.bankId'] && cfg['vietqr.accountNo']) { %>
+                    <img src="https://img.vietqr.io/image/<%= cfg['vietqr.bankId'] %>-<%= cfg['vietqr.accountNo'] %>-<%= cfg['vietqr.template'] || 'compact2' %>.png?amount=100000&addInfo=Preview&accountName=<%= encodeURIComponent(cfg['vietqr.accountName'] || '') %>"
+                         style="max-width:200px;border-radius:4px;" alt="VietQR Preview">
+                  <% } else { %>
+                    Nhập thông tin ngân hàng để xem QR
+                  <% } %>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveSection('vietqr')">
+          <i class="fas fa-save"></i> Lưu cài đặt VietQR
+        </button>
+        <span class="save-status" id="save-status-vietqr"></span>
+      </div>
+    </div>
+
+    <!-- ── PANELS ─────────────────────────────────────────── -->
+    <div class="setup-section" id="section-panels">
+      <div class="section-head">
+        <h2>Panels</h2>
+        <p>Tạo panel ticket và gửi lên kênh Discord. Panel chứa các nút/dropdown để thành viên tạo ticket.</p>
+      </div>
+
+      <!-- Existing panels -->
+      <% if (typeof panels !== 'undefined' && panels.length > 0) { %>
+      <div class="card" style="margin-bottom:var(--sp-5);">
+        <div class="card-header">
+          <div class="card-icon"><i class="fas fa-layer-group"></i></div>
+          <h3 class="card-title">Panel đã tạo</h3>
+        </div>
+        <% panels.forEach(panel => { %>
+        <div class="ticket-row" style="align-items:center;">
+          <div style="flex:1;">
+            <div style="font-weight:600;color:var(--ink-1);font-size:0.875rem;"><%= panel.panelId %></div>
+            <div style="font-size:0.75rem;color:var(--ink-3);">Msg ID: <%= panel.msgID %></div>
+          </div>
+          <div class="ticket-actions">
+            <button class="btn btn-danger btn-sm" onclick="deletePanel('<%= panel.panelId %>')">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+      <% } %>
+
+      <!-- Create panel form -->
+      <div class="card" style="border-color:var(--teal-border);">
+        <div class="card-header">
+          <div class="card-icon"><i class="fas fa-plus"></i></div>
+          <h3 class="card-title">Tạo panel mới</h3>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="panelId">Panel ID (định danh, không dấu)</label>
+            <input type="text" id="panelId" class="form-input" placeholder="panel-ho-tro">
+            <span class="form-hint">Dùng để phân biệt các panel, không hiển thị cho user.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="panelChannel">ID kênh để gửi panel</label>
+            <input type="text" id="panelChannel" class="form-input" placeholder="ID kênh Discord">
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="panelCategories">Danh mục trong panel (chọn nhiều)</label>
+            <% if (categories && categories.length > 0) { %>
+            <div style="display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:var(--sp-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);" id="panelCategoryPicker">
+              <% categories.forEach(cat => { %>
+              <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;padding:var(--sp-2) var(--sp-3);background:var(--surface-3);border:1px solid var(--border);border-radius:var(--r-sm);font-size:0.8rem;color:var(--ink-2);transition:all var(--dur-fast);"
+                     class="cat-picker-item">
+                <input type="checkbox" name="panelCat" value="<%= cat.categoryKey %>"
+                       onchange="updatePanelPreview()" style="accent-color:var(--teal);">
+                <%= cat.categoryEmoji || '🎫' %> <%= cat.categoryName %>
+              </label>
+              <% }); %>
+            </div>
+            <% } else { %>
+            <div style="padding:var(--sp-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.875rem;color:var(--ink-3);">
+              Chưa có danh mục nào. Tạo danh mục trước ở mục "Danh mục".
+            </div>
+            <% } %>
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="panelEmbedTitle">Tiêu đề embed panel</label>
+            <input type="text" id="panelEmbedTitle" class="form-input"
+                   placeholder="Hỗ Trợ Ticket" oninput="updatePanelPreview()">
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="panelEmbedDesc">Nội dung embed panel</label>
+            <textarea id="panelEmbedDesc" class="form-textarea" rows="3"
+                      placeholder="> Nhấn vào nút bên dưới để tạo ticket hỗ trợ."
+                      oninput="updatePanelPreview()"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="panelEmbedColor">Màu embed</label>
+            <div class="color-row">
+              <input type="color" id="panelColorPicker" class="color-swatch"
+                     value="<%= cfg['bot.embedColor'] || '#59d4b5' %>"
+                     oninput="document.getElementById('panelEmbedColor').value=this.value;updatePanelPreview()">
+              <input type="text" id="panelEmbedColor" class="form-input"
+                     value="<%= cfg['bot.embedColor'] || '#59d4b5' %>"
+                     oninput="document.getElementById('panelColorPicker').value=this.value;updatePanelPreview()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel preview -->
+        <div class="preview-panel">
+          <div class="preview-label">Xem trước panel trong Discord</div>
+          <div class="discord-preview">
+            <div class="discord-embed">
+              <div class="embed-accent-bar" id="panelPreviewBar" style="background:<%= cfg['bot.embedColor'] || '#59d4b5' %>;"></div>
+              <div class="embed-body">
+                <div class="embed-title" id="panelPreviewTitle">Hỗ Trợ Ticket</div>
+                <div class="embed-description" id="panelPreviewDesc">> Nhấn vào nút bên dưới để tạo ticket hỗ trợ.</div>
+                <div class="discord-buttons" id="panelPreviewButtons">
+                  <span style="font-size:0.75rem;color:#949ba4;font-style:italic;">Chọn danh mục để xem nút...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:var(--sp-4);display:flex;gap:var(--sp-3);align-items:center;">
+          <button class="btn btn-primary" onclick="sendPanel()">
+            <i class="fas fa-paper-plane"></i> Gửi panel lên kênh
+          </button>
+          <span class="save-status" id="save-status-panels"></span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /wizard-content -->
+</div><!-- /wizard-layout -->
+
+<script>
+// ── Section navigation ────────────────────────────────────
+const navItems = document.querySelectorAll('.wizard-nav-item');
+const sections = document.querySelectorAll('.setup-section');
+
+navItems.forEach(item => {
+  item.addEventListener('click', e => {
+    e.preventDefault();
+    const target = item.dataset.section;
+    navItems.forEach(n => n.classList.remove('active'));
+    sections.forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    const sec = document.getElementById('section-' + target);
+    if (sec) sec.classList.add('active');
+  });
+});
+
+// ── Preview helpers ───────────────────────────────────────
+function updatePreviewColor(hex) {
+  document.querySelectorAll('.embed-accent-bar').forEach(b => b.style.background = hex);
+}
+
+function updateCatPreview() {
+  const name  = document.getElementById('catName')?.value || 'Hỗ Trợ';
+  const emoji = document.getElementById('catEmoji')?.value || '';
+  const title = document.getElementById('catEmbedTitle')?.value || `Ticket ${name} ({category})`;
+  const msg   = document.getElementById('catEmbedMsg')?.value || '> Cảm ơn bạn đã liên hệ.';
+  const color = document.getElementById('catColor')?.value || 'Green';
+  const colorMap = { Green:'#248046', Blurple:'#5865f2', Gray:'#4e5058', Red:'#da373c' };
+
+  const t = document.getElementById('catPreviewTitle');
+  const d = document.getElementById('catPreviewDesc');
+  const b = document.getElementById('catPreviewPanelBtn');
+  const bar = document.getElementById('catPreviewBar');
+
+  if (t) t.textContent = title.replace('{category}', name);
+  if (d) d.textContent = msg;
+  if (b) { b.textContent = (emoji ? emoji + ' ' : '🎫 ') + name; b.style.background = colorMap[color] || '#248046'; }
+  if (bar) bar.style.background = colorMap[color] || '#248046';
+}
+
+function updateAlertPreview() {
+  const msg = document.getElementById('alertMsg')?.value || '';
+  const el  = document.getElementById('alertPreviewMsg');
+  if (el) el.textContent = msg.replace('{inactive-time}', '3 ngày').replace('{time}', '<t:1234567890:R>');
+}
+
+function updateVietQRPreview() {
+  const bankId  = document.getElementById('vietqrBankId')?.value || '';
+  const accNo   = document.getElementById('vietqrAccountNo')?.value || '';
+  const accName = document.getElementById('vietqrAccountName')?.value || '';
+  const tmpl    = document.getElementById('vietqrTemplate')?.value || 'compact2';
+  const bankEl  = document.getElementById('vqPreviewBank');
+  const qrEl    = document.getElementById('vqPreviewQR');
+  if (bankEl) bankEl.textContent = accName || 'Chưa cấu hình';
+  if (qrEl) {
+    if (bankId && accNo) {
+      const url = `https://img.vietqr.io/image/${bankId}-${accNo}-${tmpl}.png?amount=100000&addInfo=Preview&accountName=${encodeURIComponent(accName)}`;
+      qrEl.innerHTML = `<img src="${url}" style="max-width:200px;border-radius:4px;" alt="VietQR Preview">`;
+    } else {
+      qrEl.textContent = 'Nhập thông tin ngân hàng để xem QR';
+    }
+  }
+}
+
+// ── Working hours toggle ──────────────────────────────────
+function toggleDay(day) {
+  const cb    = document.getElementById('wh-open-' + day);
+  const input = document.getElementById('wh-' + day);
+  const label = cb.nextElementSibling.nextElementSibling;
+  if (cb.checked) {
+    input.disabled = false;
+    if (!input.value) input.value = '08:00-17:00';
+    if (label) label.textContent = 'Mở';
+  } else {
+    input.disabled = true;
+    if (label) label.textContent = 'Đóng';
+  }
+}
+
+// ── Category CRUD ─────────────────────────────────────────
+async function createCategory() {
+  const key    = document.getElementById('catKey')?.value?.trim();
+  const name   = document.getElementById('catName')?.value?.trim();
+  const parent = document.getElementById('catParent')?.value?.trim();
+  const roles  = document.getElementById('catRoles')?.value?.trim();
+
+  if (!key || !name || !parent || !roles) {
+    showToast('Vui lòng điền đầy đủ: key, tên, category channel và support roles.', 'error');
+    return;
+  }
+
+  const body = {
+    key, name,
+    category_channel: parent,
+    support_roles: roles,
+    emoji:         document.getElementById('catEmoji')?.value || '',
+    description:   '',
+    button_color:  document.getElementById('catColor')?.value || 'Green',
+    logs_channel:  document.getElementById('catLogsChannel')?.value || '',
+    channel_name:  document.getElementById('catChannelName')?.value || 'ticket-{username}',
+    embed_title:   document.getElementById('catEmbedTitle')?.value || '',
+    embed_message: document.getElementById('catEmbedMsg')?.value || '',
+  };
+
+  try {
+    const res = await fetch('/api/setup/category/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Đã tạo danh mục "${name}"`, 'success');
+      setTimeout(() => location.reload(), 800);
+    } else {
+      showToast(data.error || 'Lỗi khi tạo danh mục', 'error');
+    }
+  } catch (e) {
+    showToast('Lỗi kết nối', 'error');
+  }
+}
+
+async function deleteCategory(key) {
+  if (!confirm(`Xóa danh mục "${key}"? Hành động này không thể hoàn tác.`)) return;
+  try {
+    const res = await fetch('/api/setup/category/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Đã xóa danh mục', 'success');
+      document.querySelector(`.category-item[data-key="${key}"]`)?.remove();
+      document.getElementById('edit-' + key)?.remove();
+    } else {
+      showToast(data.error || 'Lỗi khi xóa', 'error');
+    }
+  } catch (e) {
+    showToast('Lỗi kết nối', 'error');
+  }
+}
+
+function toggleEditCategory(key) {
+  const form = document.getElementById('edit-' + key);
+  if (!form) return;
+  const isOpen = form.style.display !== 'none';
+  // Close all other edit forms first
+  document.querySelectorAll('.category-edit-form').forEach(f => f.style.display = 'none');
+  form.style.display = isOpen ? 'none' : 'block';
+}
+
+function updateEditPreview(key) {
+  const title = document.getElementById('edit-title-' + key)?.value || '';
+  const msg   = document.getElementById('edit-msg-' + key)?.value || '';
+  const emoji = document.getElementById('edit-emoji-' + key)?.value || '';
+  const name  = document.getElementById('edit-name-' + key)?.value || key;
+  const color = document.getElementById('edit-color-' + key)?.value || 'Green';
+  const colorMap = { Green:'#248046', Blurple:'#5865f2', Gray:'#4e5058', Red:'#da373c' };
+
+  const t = document.getElementById('edit-preview-title-' + key);
+  const d = document.getElementById('edit-preview-desc-' + key);
+  const b = document.getElementById('edit-preview-btn-' + key);
+
+  if (t) t.textContent = title || name;
+  if (d) d.textContent = msg;
+  if (b) { b.textContent = (emoji ? emoji + ' ' : '🎫 ') + name; b.style.background = colorMap[color] || '#248046'; }
+}
+
+async function saveEditCategory(key) {
+  const g = id => document.getElementById(id);
+  const v = id => g(id)?.value?.trim() || '';
+  const c = id => g(id)?.checked ?? false;
+
+  const rolesRaw = v('edit-roles-' + key);
+  const body = {
+    key,
+    name:          v('edit-name-' + key),
+    emoji:         v('edit-emoji-' + key),
+    category_channel: v('edit-parent-' + key),
+    support_roles: rolesRaw,
+    logs_channel:  v('edit-logs-' + key),
+    channel_name:  v('edit-chname-' + key),
+    embed_title:   v('edit-title-' + key),
+    embed_message: v('edit-msg-' + key),
+    button_color:  v('edit-color-' + key),
+    mention_roles: c('edit-mention-' + key),
+  };
+
+  try {
+    const res = await fetch('/api/setup/category/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Đã cập nhật danh mục', 'success');
+      setTimeout(() => location.reload(), 600);
+    } else {
+      showToast(data.error || 'Lỗi khi cập nhật', 'error');
+    }
+  } catch (e) {
+    showToast('Lỗi kết nối', 'error');
+  }
+}
+
+// ── Panel preview & send ──────────────────────────────────
+function updatePanelPreview() {
+  const title = document.getElementById('panelEmbedTitle')?.value || 'Hỗ Trợ Ticket';
+  const desc  = document.getElementById('panelEmbedDesc')?.value  || '> Nhấn vào nút bên dưới để tạo ticket.';
+  const color = document.getElementById('panelEmbedColor')?.value || '#59d4b5';
+
+  const t = document.getElementById('panelPreviewTitle');
+  const d = document.getElementById('panelPreviewDesc');
+  const bar = document.getElementById('panelPreviewBar');
+  const btns = document.getElementById('panelPreviewButtons');
+
+  if (t) t.textContent = title;
+  if (d) d.textContent = desc;
+  if (bar) bar.style.background = color;
+
+  // Build buttons from selected categories
+  const checked = [...document.querySelectorAll('input[name="panelCat"]:checked')];
+  if (btns) {
+    if (checked.length === 0) {
+      btns.innerHTML = '<span style="font-size:0.75rem;color:#949ba4;font-style:italic;">Chọn danh mục để xem nút...</span>';
+    } else {
+      const colorMap = { Green:'#248046', Blurple:'#5865f2', Gray:'#4e5058', Red:'#da373c' };
+      btns.innerHTML = checked.map(cb => {
+        const label = cb.closest('label');
+        const text  = label ? label.textContent.trim() : cb.value;
+        return `<span class="discord-btn green" style="background:#248046;">${text}</span>`;
+      }).join('');
+    }
+  }
+}
+
+async function sendPanel() {
+  const panelId   = document.getElementById('panelId')?.value?.trim();
+  const channelId = document.getElementById('panelChannel')?.value?.trim();
+  const title     = document.getElementById('panelEmbedTitle')?.value?.trim();
+  const desc      = document.getElementById('panelEmbedDesc')?.value?.trim();
+  const color     = document.getElementById('panelEmbedColor')?.value?.trim();
+  const cats      = [...document.querySelectorAll('input[name="panelCat"]:checked')].map(cb => cb.value);
+
+  if (!panelId)   { showToast('Nhập Panel ID', 'error'); return; }
+  if (!channelId) { showToast('Nhập ID kênh Discord', 'error'); return; }
+  if (cats.length === 0) { showToast('Chọn ít nhất một danh mục', 'error'); return; }
+
+  const statusEl = document.getElementById('save-status-panels');
+  if (statusEl) statusEl.textContent = 'Đang gửi...';
+
+  try {
+    const res = await fetch('/api/setup/panel/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ panelId, channelId, title, desc, color, categories: cats }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Panel đã được gửi lên kênh!', 'success');
+      if (statusEl) { statusEl.textContent = 'Đã gửi'; setTimeout(() => { statusEl.textContent = ''; location.reload(); }, 2000); }
+    } else {
+      showToast(data.error || 'Lỗi khi gửi panel', 'error');
+      if (statusEl) statusEl.textContent = '';
+    }
+  } catch (e) {
+    showToast('Lỗi kết nối', 'error');
+    if (statusEl) statusEl.textContent = '';
+  }
+}
+
+async function deletePanel(panelId) {
+  if (!confirm(`Xóa panel "${panelId}"?`)) return;
+  try {
+    const res = await fetch('/api/setup/panel/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ panelId }),
+    });
+    const data = await res.json();
+    if (data.success) { showToast('Đã xóa panel', 'success'); setTimeout(() => location.reload(), 600); }
+    else showToast(data.error || 'Lỗi xóa panel', 'error');
+  } catch { showToast('Lỗi kết nối', 'error'); }
+}
+
+// ── Save section ──────────────────────────────────────────
+async function saveSection(section) {
+  const statusEl = document.getElementById('save-status-' + section);
+  if (statusEl) statusEl.textContent = 'Đang lưu...';
+
+  const payload = buildPayload(section);
+
+  try {
+    const res = await fetch('/api/setup/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section, ...payload }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Đã lưu thành công', 'success');
+      if (statusEl) { statusEl.textContent = 'Đã lưu'; setTimeout(() => statusEl.textContent = '', 3000); }
+      // Mark nav item as done
+      document.querySelector(`.wizard-nav-item[data-section="${section}"]`)?.classList.add('done');
+    } else {
+      showToast(data.error || 'Lỗi khi lưu', 'error');
+      if (statusEl) statusEl.textContent = '';
+    }
+  } catch (e) {
+    showToast('Lỗi kết nối', 'error');
+    if (statusEl) statusEl.textContent = '';
+  }
+}
+
+function buildPayload(section) {
+  const g = id => document.getElementById(id);
+  const v = id => g(id)?.value ?? '';
+  const c = id => g(id)?.checked ?? false;
+
+  const payloads = {
+    ticket: {
+      logsChannelID: v('logsChannel'),
+      maxTickets:    parseInt(v('maxTickets')) || 1,
+      deleteTime:    parseInt(v('deleteTime')) || 5,
+      cooldown:      parseInt(v('cooldown')) || 0,
+      embedColor:    v('embedColor'),
+      staffRoles:    v('staffRoles').split(',').map(s => s.trim()).filter(Boolean),
+      channelTopic:  v('channelTopic'),
+      mentionAuthor: c('mentionAuthor'),
+      restrictClose: c('restrictClose'),
+      closeReason:   c('closeReason'),
+      selectMenu:    c('selectMenu'),
+    },
+    transcript: {
+      type:                v('transcriptType'),
+      saveInFolder:        c('transcriptSaveFolder'),
+      saveImages:          c('transcriptSaveImages'),
+      messagesRequirement: parseInt(v('transcriptMsgReq')) || 1,
+    },
+    claiming: {
+      enabled:          c('claimEnabled'),
+      maxPerStaff:      parseInt(v('claimMaxPerStaff')) || 3,
+      lockNewTickets:   c('claimLockNew'),
+      autoClaimEnabled: c('autoClaimEnabled'),
+      autoClaimShowMsg: c('autoClaimShowMsg'),
+      moveEnabled:      c('claimMoveEnabled'),
+      moveCategoryID:   v('claimMoveCategory'),
+      autoClaimMessage: v('autoClaimMsg'),
+    },
+    alert: {
+      enabled:          c('alertEnabled'),
+      time:             v('alertTime'),
+      dmUser:           c('alertDmUser'),
+      autoAlertEnabled: c('autoAlertEnabled'),
+      inactiveTime:     v('autoAlertInactiveTime'),
+      message:          v('alertMsg'),
+    },
+    workinghours: (() => {
+      const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+      const schedule = {};
+      days.forEach(d => {
+        const open = document.getElementById('wh-open-' + d)?.checked;
+        schedule[d] = open ? (document.getElementById('wh-' + d)?.value || '08:00-17:00') : 'closed';
+      });
+      return {
+        enabled:      c('whEnabled'),
+        timezone:     v('whTimezone'),
+        allowOutside: c('whAllowOutside'),
+        sendNotice:   c('whSendNotice'),
+        schedule,
+      };
+    })(),
+    review: {
+      enabled:        c('reviewEnabled'),
+      askWhyModal:    c('reviewAskWhy'),
+      channelEnabled: c('reviewChannelEnabled'),
+      channelID:      v('reviewChannelID'),
+      minimumWords:   parseInt(v('reviewMinWords')) || 20,
+      maximumWords:   parseInt(v('reviewMaxWords')) || 250,
+    },
+    suggestion: {
+      enabled:       c('suggestionEnabled'),
+      channelID:     v('suggestionChannelID'),
+      createThreads: c('suggestionThreads'),
+    },
+    channelstats: (() => {
+      const keys = ['totalTickets','openTickets','averageRating','memberCount'];
+      const result = {};
+      keys.forEach(k => {
+        result[k] = {
+          enabled:     document.getElementById('cs-' + k + '-enabled')?.checked ?? false,
+          channelID:   document.getElementById('cs-' + k + '-channel')?.value || '',
+          channelName: document.getElementById('cs-' + k + '-name')?.value || '',
+        };
+      });
+      return result;
+    })(),
+    archive: {
+      enabled:           c('archiveEnabled'),
+      hideFromCreator:   c('archiveHideCreator'),
+      moveToCategory:    c('archiveMoveCategory'),
+      categoryID:        v('archiveCategoryID'),
+      channelNamePrefix: v('archivePrefix'),
+    },
+    vietqr: {
+      bankId:       v('vietqrBankId'),
+      accountNo:    v('vietqrAccountNo'),
+      accountName:  v('vietqrAccountName'),
+      template:     v('vietqrTemplate'),
+      onlyInTickets:c('vietqrOnlyTickets'),
+    },
+  };
+  return payloads[section] || {};
+}
+</script>
+
+<%- include('partials/shell-close') %>

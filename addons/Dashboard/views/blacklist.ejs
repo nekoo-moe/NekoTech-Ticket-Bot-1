@@ -1,294 +1,86 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blacklist</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-  <style>
-    :root {
-      --accent-color: <%= accentColorHex %>;
-      --accent-color-rgb: <%= accentColorRgb %>;
-    }
+<%
+  pageTitle = 'Blacklist';
+  activePage = 'blacklist';
+%>
+<%- include('partials/shell-open', { user, accentColorHex, accentColorRgb, pageTitle, activePage }) %>
 
-    body {
-      min-height: 100vh;
-      background: radial-gradient(circle at top left, rgba(var(--accent-color-rgb), 0.2) 0%, rgba(var(--accent-color-rgb), 0.15) 50%, rgba(var(--accent-color-rgb), 0.1) 100%), #0f0f13;
-      color: #9ca3af;
-    }
+<div class="page-header">
+  <h1 class="page-title">Blacklist</h1>
+  <p class="page-subtitle">Quản lý người dùng bị chặn khỏi hệ thống ticket.</p>
+</div>
 
-    .section {
-      flex: 1;
-    }
+<% if (typeof invalidUserId !== 'undefined' && invalidUserId) { %>
+<div style="background:oklch(0.65 0.22 25 / 0.12);border:1px solid oklch(0.65 0.22 25 / 0.3);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-5);display:flex;align-items:center;gap:var(--sp-3);">
+  <i class="fas fa-exclamation-circle" style="color:var(--danger);"></i>
+  <span style="font-size:0.875rem;color:var(--ink-2);">Không tìm thấy người dùng với ID này. Kiểm tra lại Discord User ID.</span>
+</div>
+<% } %>
 
-    .welcome-title {
-      color: #ffffff;
-      font-size: 2rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
+<!-- Add user form -->
+<div class="card" style="margin-bottom:var(--sp-5);">
+  <div class="card-header">
+    <div class="card-icon" style="background:oklch(0.65 0.22 25 / 0.12);color:var(--danger);border-color:oklch(0.65 0.22 25 / 0.25);">
+      <i class="fas fa-user-plus"></i>
+    </div>
+    <h2 class="card-title">Thêm vào blacklist</h2>
+  </div>
+  <form action="/blacklist" method="POST" style="display:flex;gap:var(--sp-3);align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;min-width:240px;">
+      <label class="form-label" for="userId">Discord User ID</label>
+      <input type="text" id="userId" name="userId" class="form-input"
+             placeholder="123456789012345678" required
+             pattern="[0-9]{17,20}" title="Nhập Discord User ID (17-20 chữ số)">
+      <span class="form-hint">Chuột phải vào user trong Discord → Copy ID</span>
+    </div>
+    <input type="hidden" name="action" value="blacklist">
+    <button type="submit" class="btn btn-danger" style="margin-bottom:22px;">
+      <i class="fas fa-ban"></i> Chặn người dùng
+    </button>
+  </form>
+</div>
 
-    .welcome-subtitle {
-      color: #9ca3af;
-      font-size: 1.1rem;
-    }
-    .welcome-section {
-      padding: 1rem 1.5rem;
-    }
+<!-- Blacklisted users list -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-icon"><i class="fas fa-users-slash"></i></div>
+    <h2 class="card-title">Người dùng bị chặn</h2>
+    <span class="badge badge-muted" style="margin-left:auto;"><%= blacklistedUsers.length %></span>
+  </div>
 
-    .icon-container {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background-color: rgba(var(--accent-color-rgb), 0.2);
-      color: var(--accent-color);
-      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.3);
-    }
-
-    .icon-container i {
-      font-size: 1.25rem;
-    }
-
-    .blacklist-container {
-      background-color: #161219;
-      border-radius: 15px;
-      padding: 1.5rem;
-      margin-top: 1.5rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .add-user-section {
-      background: rgba(22, 18, 25, 0.5);
-      border-radius: 12px;
-      padding: 1.5rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-      margin-bottom: 2rem;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .section-title {
-      color: #ffffff;
-      font-size: 1.3rem;
-      font-weight: bold;
-      margin: 0;
-    }
-
-    .input {
-      background-color: rgba(15, 15, 19, 0.8) !important;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.2) !important;
-      color: #ffffff !important;
-      border-radius: 8px;
-      padding: 1rem;
-      transition: all 0.3s ease;
-    }
-
-    .input:focus {
-      border-color: var(--accent-color) !important;
-      box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.2);
-    }
-
-    .input::placeholder {
-      color: #6b7280 !important;
-    }
-
-    .blacklist-button {
-      background-color: #dc2626;
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      padding: 0.75rem 1.5rem;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      margin-top: 1rem;
-    }
-
-    .blacklist-button:hover {
-      background-color: #b91c1c;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
-    }
-
-    .users-list {
-      margin-top: 1rem;
-    }
-
-    .user-item {
-      background: rgba(22, 18, 25, 0.5);
-      border-radius: 12px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      transition: transform 0.2s, background-color 0.2s;
-    }
-
-    .user-item:hover {
-      transform: translateX(5px);
-      background: rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      border: 2px solid rgba(var(--accent-color-rgb), 0.3);
-    }
-
-    .user-details {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    .username {
-      color: #ffffff;
-      font-weight: 500;
-      font-size: 1.1rem;
-    }
-
-    .blacklist-date {
-      color: #6b7280;
-      font-size: 0.9rem;
-    }
-
-    .remove-button {
-      background-color: rgba(220, 38, 38, 0.1);
-      color: #dc2626;
-      border: 1px solid rgba(220, 38, 38, 0.2);
-      border-radius: 6px;
-      padding: 0.5rem 1rem;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-
-    .remove-button:hover {
-      background-color: rgba(220, 38, 38, 0.2);
-      transform: translateY(-2px);
-    }
-
-    @media screen and (max-width: 768px) {
-      .user-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-      }
-
-      .user-actions {
-        width: 100%;
-      }
-
-      .remove-button {
-        width: 100%;
-      }
-    }
-  </style>
-</head>
-<body style="display: flex; flex-direction: column; min-height: 100vh; margin: 0;">
-  <%- include('partials/header', { user: user }) %>
-
-  <section class="section pt-4" style="min-height: calc(100vh - 180px);">
-    <div class="container">
-      <div class="welcome-section">
-        <h1 class="welcome-title">
-          Blacklist Management
-        </h1>
-        <p class="welcome-subtitle">Manage users blacklisted from creating tickets.</p>
+  <% if (blacklistedUsers.length > 0) { %>
+    <% blacklistedUsers.forEach(u => { %>
+    <div class="ticket-row" style="align-items:center;">
+      <img src="<%= u.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png' %>"
+           alt="<%= u.username %>" class="ticket-avatar" style="width:36px;height:36px;border-radius:50%;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;color:var(--ink-1);font-size:0.875rem;"><%= u.username || 'Unknown User' %></div>
+        <div style="font-size:0.75rem;color:var(--ink-3);font-family:monospace;"><%= u.userId %></div>
       </div>
-
-      <div class="blacklist-container">
-        <div class="add-user-section">
-          <div class="section-header">
-            <div class="icon-container">
-              <i class="fas fa-user-plus"></i>
-            </div>
-            <h2 class="section-title">Add User to Blacklist</h2>
-          </div>
-          
-          <form action="/blacklist" method="POST">
-            <div class="field">
-              <div class="control">
-                <input class="input" type="text" name="userId" placeholder="Enter Discord User ID" required>
-              </div>
-            </div>
-            <input type="hidden" name="action" value="blacklist">
-            <button class="blacklist-button">
-              <i class="fas fa-ban mr-2"></i>
-              Add to Blacklist
-            </button>
-          </form>
-        </div>
-
-        <div class="section-header">
-          <div class="icon-container">
-            <i class="fas fa-users-slash"></i>
-          </div>
-          <h2 class="section-title">Blacklisted Users</h2>
-        </div>
-
-        <div class="users-list">
-          <% if (blacklistedUsers.length > 0) { %>
-            <% blacklistedUsers.forEach(user => { %>
-              <div class="user-item">
-                <div class="user-info">
-                  <img src="<%= user.avatar %>" alt="Avatar" class="avatar">
-                  <div class="user-details">
-                    <span class="username"><%= user.username %></span>
-                    <span class="blacklist-date">
-                      <i class="fas fa-calendar-alt mr-2"></i>
-                      <%= new Date(user.updatedAt).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'short', 
-                        day: 'numeric' 
-                      }) %>
-                    </span>
-                  </div>
-                </div>
-                <div class="user-actions">
-                  <form action="/blacklist" method="POST" onsubmit="return confirmRemoval()">
-                    <input type="hidden" name="userId" value="<%= user.userId %>">
-                    <input type="hidden" name="action" value="unblacklist">
-                    <button class="remove-button">
-                      <i class="fas fa-user-minus mr-2"></i>
-                      Remove from Blacklist
-                    </button>
-                  </form>
-                </div>
-              </div>
-            <% }); %>
-          <% } else { %>
-            <div class="has-text-centered py-6" style="color: #6b7280;">
-              No blacklisted users found
-            </div>
-          <% } %>
-        </div>
+      <% if (u.updatedAt) { %>
+      <span class="badge badge-muted">
+        <i class="fas fa-calendar-alt" style="margin-right:4px;"></i>
+        <%= new Date(u.updatedAt).toLocaleDateString('vi-VN', { day:'2-digit', month:'short', year:'numeric' }) %>
+      </span>
+      <% } %>
+      <div class="ticket-actions">
+        <form action="/blacklist" method="POST"
+              onsubmit="return confirm('Bỏ chặn <%= u.username %>?')">
+          <input type="hidden" name="userId" value="<%= u.userId %>">
+          <input type="hidden" name="action" value="unblacklist">
+          <button type="submit" class="btn btn-ghost btn-sm">
+            <i class="fas fa-user-check"></i> Bỏ chặn
+          </button>
+        </form>
       </div>
     </div>
-  </section>
+    <% }); %>
+  <% } else { %>
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fas fa-shield-alt"></i></div>
+      <p class="empty-title">Không có ai bị chặn</p>
+      <p class="empty-body">Danh sách blacklist trống. Thêm người dùng bằng form bên trên.</p>
+    </div>
+  <% } %>
+</div>
 
-  <%- include('partials/footer') %>
-
-  <script>
-    function confirmRemoval() {
-      return confirm("Are you sure you want to remove this user from the blacklist?");
-    }
-  </script>
-</body>
-</html>
+<%- include('partials/shell-close') %>

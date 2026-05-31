@@ -1,766 +1,330 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ticket #<%= ticket.identifier %></title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-  <style>
-    :root {
-      --accent-color: <%= accentColorHex %>;
-      --accent-color-rgb: <%= accentColorRgb %>;
-    }
+<%
+  pageTitle = 'Ticket #' + ticket.identifier;
+  activePage = 'open-tickets';
+%>
+<%- include('partials/shell-open', { user, accentColorHex, accentColorRgb, pageTitle, activePage }) %>
 
-    body {
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-      background: radial-gradient(circle at top left, rgba(var(--accent-color-rgb), 0.2) 0%, rgba(var(--accent-color-rgb), 0.15) 50%, rgba(var(--accent-color-rgb), 0.1) 100%), #0f0f13;
-      color: #9ca3af;
-    }
-
-    .welcome-section {
-      padding: 1.5rem 1.5rem 0;
-    }
-
-    .welcome-title {
-      color: #ffffff;
-      font-size: 2rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .welcome-subtitle {
-      color: #9ca3af;
-      font-size: 1.1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .welcome-subtitle img {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-    }
-
-    .ticket-container {
-      background-color: #161219;
-      border-radius: 15px;
-      padding: 1.5rem;
-      margin-top: 1.5rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .ticket-info {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .info-item {
-      background: rgba(22, 18, 25, 0.5);
-      border-radius: 10px;
-      padding: 1rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .info-label {
-      color: #9ca3af;
-      font-size: 0.9rem;
-      margin-bottom: 0.25rem;
-    }
-
-    .info-value {
-      color: #ffffff;
-      font-weight: 500;
-    }
-
-    .messages-container {
-      margin-top: 1.5rem;
-    }
-
-    .message {
-      background: rgba(22, 18, 25, 0.5);
-      border-radius: 12px;
-      padding: 1.25rem;
-      margin-bottom: 1rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-      display: flex;
-      gap: 1rem;
-    }
-
-    .message-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      border: 2px solid rgba(var(--accent-color-rgb), 0.3);
-    }
-
-    .message-content {
-      flex: 1;
-    }
-
-    .message-header {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .message-username {
-      color: var(--accent-color);
-      font-weight: 500;
-    }
-
-    .message-timestamp {
-      color: #6b7280;
-      font-size: 0.85rem;
-    }
-
-    .message-text {
-      color: #e2e8f0;
-      line-height: 1.5;
-    }
-
-    .response-section {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 1.5rem;
-      margin-top: 1.5rem;
-    }
-
-    .response-box {
-  background: rgba(15, 15, 19, 0.95);
-  border-radius: 12px;
-  padding: 1.25rem;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-  width: 100%;
+<style>
+.ticket-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--sp-5);
+  align-items: start;
 }
-
-.response-textarea {
-  background-color: rgba(22, 18, 25, 0.8) !important;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.2) !important;
-  color: #ffffff !important;
-  border-radius: 8px;
-  min-height: 120px;
-  width: 100% !important;
-  resize: vertical;
-  padding: 0.75rem;
-  font-size: 0.95rem;
-  caret-color: #ffffff;
-  display: block;
+.ticket-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
 }
-
-.response-textarea:focus {
-  border-color: var(--accent-color) !important;
-  box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.2);
+.meta-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
 }
+.meta-item-label { font-size: 0.72rem; color: var(--ink-3); font-weight: 600; margin-bottom: 4px; }
+.meta-item-value { font-size: 0.875rem; color: var(--ink-1); font-weight: 500; }
 
-    .questions-box {
-      background: rgba(22, 18, 25, 0.5);
-      border-radius: 12px;
-      padding: 1.25rem;
-      border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .questions-title {
-      color: #ffffff;
-      font-size: 1.1rem;
-      font-weight: 500;
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .question-item {
-      margin-bottom: 1rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .question-item:last-child {
-      margin-bottom: 0;
-      padding-bottom: 0;
-      border-bottom: none;
-    }
-
-    .question-text {
-      color: #9ca3af;
-      font-size: 0.9rem;
-      margin-bottom: 0.25rem;
-    }
-
-    .answer-text {
-      color: #ffffff;
-      font-weight: 500;
-    }
-
-    .close-button {
-      background-color: #dc2626;
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      padding: 0.5rem 1rem;
-      font-weight: 500;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      cursor: pointer;
-    }
-
-    .close-button:hover {
-      background-color: #b91c1c;
-      transform: translateY(-2px);
-    }
-
-    .send-button {
-      background-color: var(--accent-color);
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      padding: 0.5rem 1rem;
-      font-weight: 500;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-top: 1rem;
-      cursor: pointer;
-    }
-
-    .send-button:hover {
-      opacity: 0.9;
-      transform: translateY(-2px);
-    }
-
-    .embed {
-      margin-top: 1rem;
-      padding: 1rem;
-      border-radius: 8px;
-      background-color: rgba(47, 49, 54, 0.6);
-      border-left: 4px solid var(--accent-color);
-    }
-
-    .attachments {
-      margin-top: 1rem;
-      display: grid;
-      gap: 0.5rem;
-    }
-
-    .attachment-image {
-      max-width: 100%;
-      border-radius: 8px;
-    }
-
-    .attachment-link {
-      color: var(--accent-color);
-      text-decoration: underline;
-    }
-
-    @media screen and (max-width: 768px) {
-      .response-section {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .modal-card {
-  background-color: #161219;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.1);
-  max-width: 400px;
-}
-
-.modal-card-head {
-  background-color: #1a1721;
-  border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.1);
-  border-radius: 12px 12px 0 0;
-  padding: 1rem;
-}
-
-.modal-card-title {
-  color: #ffffff;
-  font-size: 1.25rem;
-  font-weight: 500;
-}
-
-.modal-card-body {
-  background-color: #161219;
-  color: #9ca3af;
-  padding: 1.5rem;
-  font-size: 1rem;
-}
-
-.modal-card-foot {
-  background-color: #1a1721;
-  border-top: 1px solid rgba(var(--accent-color-rgb), 0.1);
-  border-radius: 0 0 12px 12px;
-  padding: 1rem;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.modal-card .delete {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.modal-card .delete:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.modal-card-foot .button {
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-weight: 500;
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.modal-card-foot .button.is-danger {
-  background-color: #dc2626;
-  color: #ffffff;
-  border: none;
-}
-
-.modal-card-foot .button.is-danger:hover {
-  background-color: #b91c1c;
-  transform: translateY(-2px);
-}
-
-.modal-card-foot .button:not(.is-danger) {
-  background-color: rgba(22, 18, 25, 0.8);
-  color: #9ca3af;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
-}
-
-.modal-card-foot .button:not(.is-danger):hover {
-  background-color: rgba(var(--accent-color-rgb), 0.1);
-  color: #ffffff;
-  transform: translateY(-2px);
-}
-
-.inline-notice {
-  margin-top: 1rem;
-  opacity: 1;
-  transition: opacity 0.3s ease-in-out;
-}
-
-.inline-notice.is-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.notice-content {
+/* Messages */
+.msg-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.msg-item {
   display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.msg-avatar { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--border); flex-shrink: 0; }
+.msg-body { flex: 1; min-width: 0; }
+.msg-header { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: 4px; }
+.msg-author { font-size: 0.875rem; font-weight: 600; color: var(--teal); }
+.msg-time   { font-size: 0.72rem; color: var(--ink-3); }
+.msg-text   { font-size: 0.875rem; color: var(--ink-2); line-height: 1.6; word-break: break-word; }
+.msg-embed {
+  margin-top: var(--sp-2);
+  background: var(--surface-3);
+  border-radius: var(--r-sm);
+  border-left: 3px solid var(--teal);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 0.825rem;
+}
+.msg-embed-title { font-weight: 600; color: var(--ink-1); margin-bottom: 4px; }
+.msg-embed-desc  { color: var(--ink-2); line-height: 1.5; }
+.msg-attachment  { margin-top: var(--sp-2); }
+.msg-attachment img { max-width: 100%; max-height: 300px; border-radius: var(--r-sm); }
+
+/* Sidebar */
+.ticket-sidebar { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+/* New message notice */
+.new-msg-notice {
+  display: none;
   align-items: center;
-  gap: 12px;
-  background: rgba(22, 18, 25, 0.95);
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--teal-glow);
+  border: 1px solid var(--teal-border);
+  border-radius: var(--r-md);
+  margin-bottom: var(--sp-4);
+  font-size: 0.875rem;
+  color: var(--teal);
 }
+.new-msg-notice.visible { display: flex; }
 
-.notice-icon {
-  color: var(--accent-color);
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(var(--accent-color-rgb), 0.1);
-  padding: 8px;
-  border-radius: 8px;
+/* Confirm dialog */
+.confirm-dialog {
+  position: fixed; inset: 0;
+  background: oklch(0 0 0 / 0.7);
+  z-index: var(--z-modal);
+  display: none; place-items: center;
 }
-
-.notice-text {
-  color: #ffffff;
-  font-size: 0.95rem;
-  flex-grow: 1;
+.confirm-dialog.open { display: grid; }
+.confirm-box {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: var(--sp-6);
+  max-width: 380px; width: calc(100% - var(--sp-6));
+  display: flex; flex-direction: column; gap: var(--sp-4);
+  animation: modal-in 200ms var(--ease-out) both;
 }
-
-.notice-refresh {
-  background: var(--accent-color);
-  color: #ffffff;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
+@keyframes modal-in {
+  from { opacity:0; transform: scale(0.96) translateY(8px); }
+  to   { opacity:1; transform: scale(1) translateY(0); }
 }
+.confirm-title { font-size: 1rem; font-weight: 700; color: var(--ink-1); }
+.confirm-body  { font-size: 0.875rem; color: var(--ink-3); }
+.confirm-actions { display: flex; gap: var(--sp-3); justify-content: flex-end; }
 
-.notice-refresh:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+@media (max-width: 900px) {
+  .ticket-detail-grid { grid-template-columns: 1fr; }
+  .ticket-sidebar { order: -1; }
 }
+</style>
 
-.notice-close {
-  background: rgba(255, 255, 255, 0.1);
-  color: #9ca3af;
-  border: none;
-  padding: 6px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
+<div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-5);">
+  <a href="/open-tickets" class="btn btn-ghost btn-sm">
+    <i class="fas fa-arrow-left"></i> Quay lại
+  </a>
+  <h1 class="page-title" style="margin:0;">Ticket <span style="color:var(--teal);">#<%= ticket.identifier %></span></h1>
+  <span class="badge badge-teal" style="margin-left:auto;">Đang mở</span>
+</div>
 
-.notice-close:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-}
+<!-- New message notice -->
+<div class="new-msg-notice" id="newMsgNotice">
+  <i class="fas fa-bell"></i>
+  <span>Có tin nhắn mới trong ticket này.</span>
+  <button class="btn btn-ghost btn-sm" onclick="location.reload()" style="margin-left:auto;">
+    <i class="fas fa-rotate-right"></i> Tải lại
+  </button>
+  <button onclick="document.getElementById('newMsgNotice').classList.remove('visible')"
+          style="background:none;border:none;cursor:pointer;color:var(--teal);padding:0;font-size:0.8rem;">
+    <i class="fas fa-times"></i>
+  </button>
+</div>
 
-  </style>
-</head>
-<body>
-  <%- include('partials/header', { user: user }) %>
+<!-- Meta info -->
+<div class="ticket-meta-grid">
+  <div class="meta-item">
+    <div class="meta-item-label">Người tạo</div>
+    <div class="meta-item-value"><%= userInfo.username || 'Unknown' %></div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-item-label">Danh mục</div>
+    <div class="meta-item-value"><%= ticket.ticketType || 'N/A' %></div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-item-label">Kênh</div>
+    <div class="meta-item-value">#<%= ticket.channelName || 'unknown' %></div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-item-label">Thời gian mở</div>
+    <div class="meta-item-value"><%= ticket.openDuration || 'N/A' %></div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-item-label">Ưu tiên</div>
+    <div class="meta-item-value">
+      <span class="badge <%= ticket.priority === 'High' ? 'badge-red' : ticket.priority === 'Medium' ? 'badge-pink' : 'badge-muted' %>">
+        <%= ticket.priority || 'Bình thường' %>
+      </span>
+    </div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-item-label">Ngày tạo</div>
+    <div class="meta-item-value"><%= new Date(ticket.createdAt).toLocaleDateString('vi-VN') %></div>
+  </div>
+</div>
 
-  <section class="section pt-4" style="min-height: calc(100vh - 180px);">
-    <div class="container">
-      <div class="welcome-section">
-        <h1 class="welcome-title">
-          Ticket #<%= ticket.identifier %>
-        </h1>
-        <p class="welcome-subtitle">
-          Created by <%= userInfo.username || 'Unknown' %>
-        </p>
+<div class="ticket-detail-grid">
+  <!-- Messages -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon"><i class="fas fa-comments"></i></div>
+        <h2 class="card-title">Tin nhắn (<%= messages.length %>)</h2>
       </div>
-  
-      <div class="ticket-container">
-        <div class="ticket-info">
-          <div class="info-item">
-            <div class="info-label">Priority</div>
-            <div class="info-value">
-              <i class="fas fa-flag" style="color: <%= ticket.priority === 'High' ? '#dc2626' : 'var(--accent-color)' %>"></i>
-              <%= ticket.priority || 'Normal' %>
+      <% if (messages.length > 0) { %>
+      <div class="msg-list">
+        <% messages.slice().reverse().forEach(msg => { %>
+        <div class="msg-item">
+          <img src="<%= msg.avatar %>" alt="<%= msg.username %>" class="msg-avatar">
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author"><%= msg.username %></span>
+              <span class="msg-time"><%= new Date(msg.createdAt).toLocaleString('vi-VN', { dateStyle:'short', timeStyle:'short' }) %></span>
             </div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Created On</div>
-            <div class="info-value">
-              <i class="fas fa-calendar-alt"></i>
-              <%= new Date(ticket.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) %>
-            </div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Category</div>
-            <div class="info-value">
-              <i class="fas fa-folder"></i>
-              <%= ticket.ticketType || 'Uncategorized' %>
-            </div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Channel</div>
-            <div class="info-value">
-              <i class="fas fa-hashtag"></i>
-              <%= ticket.channelName || 'Unknown Channel' %>
-            </div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Open Duration</div>
-            <div class="info-value">
-              <i class="fas fa-clock"></i>
-              <%= ticket.openDuration || 'Unknown' %>
-            </div>
-          </div>
-        </div>
-  
-        <button id="close-ticket" class="close-button">
-          <i class="fas fa-times-circle"></i>
-          Close Ticket
-        </button>
-  
-        <div id="new-message-notice" class="inline-notice is-hidden">
-          <div class="notice-content">
-            <div class="notice-icon">
-              <i class="fas fa-bell"></i>
-            </div>
-            <span class="notice-text">A new message has been sent in this ticket</span>
-            <button class="notice-refresh" onclick="location.reload()">
-              <i class="fas fa-sync-alt"></i>
-              Refresh
-            </button>
-            <button class="notice-close" onclick="hideNotice()">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-        </div>
-
-        <div class="response-section">
-          <div class="response-box">
-            <div class="questions-title">
-              <i class="fas fa-reply"></i>
-              Respond to Ticket
-            </div>
-            <div style="width: 100%;">
-              <textarea 
-                id="response-input" 
-                class="response-textarea" 
-                placeholder="Type your response here..." 
-                maxlength="1999"
-              ></textarea>
-              <p id="char-counter" style="text-align: right; font-size: 0.85rem; color: #6b7280; margin-top: 0.25rem;">
-                1999 characters remaining
-              </p>
-              <button id="send-response" class="send-button">
-                <i class="fas fa-paper-plane"></i>
-                Send Response
-              </button>
-            </div>
-          </div>
-  
-          <div class="questions-box">
-            <div class="questions-title">
-              <i class="fas fa-question-circle"></i>
-              Ticket Questions
-            </div>
-            <% if (ticket.questions && ticket.questions.length > 0) { %>
-              <% ticket.questions.forEach(q => { %>
-                <div class="question-item">
-                  <div class="question-text"><%= q.question %></div>
-                  <div class="answer-text"><%= q.response %></div>
-                </div>
+            <% if (msg.content) { %>
+              <div class="msg-text"><%= msg.content %></div>
+            <% } %>
+            <% if (msg.embeds && msg.embeds.length > 0) { %>
+              <% msg.embeds.forEach(embed => { %>
+              <div class="msg-embed">
+                <% if (embed.title) { %><div class="msg-embed-title"><%= embed.title %></div><% } %>
+                <% if (embed.description) { %><div class="msg-embed-desc"><%- embed.description %></div><% } %>
+                <% if (embed.fields) { embed.fields.forEach(f => { %>
+                  <div style="margin-top:6px;"><strong style="color:var(--ink-1);font-size:0.8rem;"><%= f.name %></strong><div class="msg-embed-desc"><%- f.value %></div></div>
+                <% }); } %>
+              </div>
               <% }); %>
-            <% } else { %>
-              <div style="color: #6b7280; font-style: italic;">No questions were asked for this ticket.</div>
+            <% } %>
+            <% if (msg.attachments && msg.attachments.length > 0) { %>
+              <% msg.attachments.forEach(att => { %>
+              <div class="msg-attachment">
+                <% if (att.type && att.type.startsWith('image/')) { %>
+                  <img src="<%= att.url %>" alt="<%= att.name %>">
+                <% } else { %>
+                  <a href="<%= att.url %>" target="_blank" class="btn btn-ghost btn-sm">
+                    <i class="fas fa-download"></i> <%= att.name %>
+                  </a>
+                <% } %>
+              </div>
+              <% }); %>
             <% } %>
           </div>
         </div>
-  
-        <div class="messages-container">
-          <% if (messages.length > 0) { %>
-            <% messages.forEach(msg => { %>
-              <div class="message">
-                <img src="<%= msg.avatar %>" alt="<%= msg.username %>" class="message-avatar">
-                <div class="message-content">
-                  <div class="message-header">
-                    <span class="message-username"><%= msg.username %></span>
-                    <span class="message-timestamp">
-                      <%= new Date(msg.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) %>
-                    </span>
-                  </div>
-                  <div class="message-text"><%= msg.content %></div>
-  
-                  <% if (msg.attachments && msg.attachments.length > 0) { %>
-                    <div class="attachments">
-                      <% msg.attachments.forEach(attachment => { %>
-                        <% if (attachment.type && attachment.type.startsWith('image/')) { %>
-                          <img src="<%= attachment.url %>" alt="<%= attachment.name %>" class="attachment-image">
-                        <% } else { %>
-                          <a href="<%= attachment.url %>" target="_blank" class="attachment-link">
-                            <i class="fas fa-download"></i> <%= attachment.name %>
-                          </a>
-                        <% } %>
-                      <% }); %>
-                    </div>
-                  <% } %>
-  
-                  <% if (msg.embeds && msg.embeds.length > 0) { %>
-                    <% msg.embeds.forEach(embed => { %>
-                      <div class="embed">
-                        <% if (embed.title) { %>
-                          <div style="color: #ffffff; font-weight: 500; margin-bottom: 0.5rem;">
-                            <%= embed.title %>
-                          </div>
-                        <% } %>
-                        <% if (embed.description) { %>
-                          <div style="color: #b9bbbe;"><%- embed.description %></div>
-                        <% } %>
-                        <% if (embed.fields && embed.fields.length > 0) { %>
-                          <% embed.fields.forEach(field => { %>
-                            <div style="margin-top: 0.5rem;">
-                              <div style="color: #ffffff; font-weight: 500;"><%= field.name %></div>
-                              <div style="color: #b9bbbe;"><%- field.value %></div>
-                            </div>
-                          <% }); %>
-                        <% } %>
-                      </div>
-                    <% }); %>
-                  <% } %>
-                </div>
-              </div>
-            <% }); %>
-          <% } else { %>
-            <div style="text-align: center; color: #6b7280; padding: 2rem;">
-              No messages found in this ticket.
-            </div>
-          <% } %>
+        <% }); %>
+      </div>
+      <% } else { %>
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fas fa-comment-slash"></i></div>
+        <p class="empty-title">Chưa có tin nhắn</p>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="ticket-sidebar">
+    <!-- Reply box -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon"><i class="fas fa-reply"></i></div>
+        <h3 class="card-title">Phản hồi</h3>
+      </div>
+      <div class="form-group">
+        <textarea id="responseInput" class="form-textarea" rows="4"
+                  placeholder="Nhập phản hồi..." maxlength="1999"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--sp-2);">
+          <span id="charCount" style="font-size:0.72rem;color:var(--ink-3);">1999 ký tự còn lại</span>
+          <button id="sendBtn" class="btn btn-primary btn-sm" onclick="sendResponse()">
+            <i class="fas fa-paper-plane"></i> Gửi
+          </button>
         </div>
       </div>
     </div>
-  </section>
-  
-  <div id="close-modal" class="modal">
-    <div class="modal-background"></div>
-    <div class="modal-card">
-      <header class="modal-card-head">
-        <p class="modal-card-title">Close Ticket</p>
-        <button class="delete" aria-label="close"></button>
-      </header>
-      <section class="modal-card-body">
-        <p>Are you sure you want to close this ticket?</p>
-      </section>
-      <footer class="modal-card-foot">
-        <button id="confirm-close" class="button is-danger">
-          <i class="fas fa-times-circle mr-2"></i>
-          Close Ticket
-        </button>
-        <button id="cancel-close" class="button">
-          <i class="fas fa-times mr-2"></i>
-          Cancel
-        </button>
-      </footer>
+
+    <!-- Close ticket -->
+    <button class="btn btn-danger" style="width:100%;justify-content:center;" onclick="document.getElementById('closeDialog').classList.add('open')">
+      <i class="fas fa-times-circle"></i> Đóng ticket
+    </button>
+
+    <!-- Questions -->
+    <% if (ticket.questions && ticket.questions.length > 0) { %>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon"><i class="fas fa-question-circle"></i></div>
+        <h3 class="card-title">Câu hỏi</h3>
+      </div>
+      <% ticket.questions.forEach(q => { %>
+      <div style="margin-bottom:var(--sp-3);padding-bottom:var(--sp-3);border-bottom:1px solid var(--border);">
+        <div style="font-size:0.75rem;color:var(--ink-3);margin-bottom:4px;"><%= q.question %></div>
+        <div style="font-size:0.875rem;color:var(--ink-1);font-weight:500;"><%= q.response || 'Chưa trả lời' %></div>
+      </div>
+      <% }); %>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Close confirm dialog -->
+<div class="confirm-dialog" id="closeDialog">
+  <div class="confirm-box">
+    <h2 class="confirm-title">Đóng ticket này?</h2>
+    <p class="confirm-body">Ticket sẽ được đóng và transcript sẽ được gửi cho người tạo. Hành động này không thể hoàn tác.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('closeDialog').classList.remove('open')">Hủy</button>
+      <button class="btn btn-danger" id="confirmCloseBtn">
+        <i class="fas fa-times-circle"></i> Đóng ticket
+      </button>
     </div>
   </div>
-  
-  <%- include('partials/footer') %>
+</div>
 
-  <script>
-    const closeTicketButton = document.getElementById('close-ticket');
-    const closeModal = document.getElementById('close-modal');
-    const confirmCloseButton = document.getElementById('confirm-close');
-    const cancelCloseButton = document.getElementById('cancel-close');
-    const modalCloseButton = closeModal.querySelector('.delete');
-  
-    closeTicketButton.addEventListener('click', () => {
-      closeModal.classList.add('is-active');
+<script>
+// Char counter
+const ta = document.getElementById('responseInput');
+const cc = document.getElementById('charCount');
+ta.addEventListener('input', () => { cc.textContent = (1999 - ta.value.length) + ' ký tự còn lại'; });
+
+// Send response
+async function sendResponse() {
+  const msg = ta.value.trim();
+  if (!msg) { showToast('Vui lòng nhập nội dung phản hồi.', 'error'); return; }
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  try {
+    const res = await fetch('/open-tickets/<%= ticket.identifier %>/respond', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg }),
     });
-  
-    const closeModalFn = () => closeModal.classList.remove('is-active');
-  
-    modalCloseButton.addEventListener('click', closeModalFn);
-    cancelCloseButton.addEventListener('click', closeModalFn);
-  
-    confirmCloseButton.addEventListener('click', async () => {
-      const ticketId = '<%= ticket.identifier %>';
-  
-      try {
-        const response = await fetch(`/open-tickets/${ticketId}/close`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-  
-        if (response.ok) {
-          window.location.href = '/open-tickets';
-        } else {
-          const result = await response.json();
-          console.error(result.error || 'Failed to close the ticket.');
-        }
-      } catch (error) {
-        console.error('Error closing ticket:', error);
-      }
-    });
-  
-    function showNotice() {
-      const notice = document.getElementById('new-message-notice');
-      notice.classList.remove('is-hidden');
-    }
-  
-    function hideNotice() {
-  const notice = document.getElementById('new-message-notice');
-  notice.classList.add('is-hidden');
+    if (res.ok) { location.reload(); }
+    else { const d = await res.json(); showToast(d.error || 'Lỗi gửi phản hồi', 'error'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi'; }
+  } catch { showToast('Lỗi kết nối', 'error'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi'; }
 }
 
-    async function fetchMessages() {
-      try {
-        const response = await fetch('/open-tickets/<%= ticket.identifier %>/messages');
-        if (!response.ok) {
-          console.error("Failed to fetch messages:", response.statusText);
-          return [];
-        }
-        return await response.json();
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-        return [];
-      }
-    }
-  
-    let lastMessageId = null;
-  
-    (async function initializeLastMessageId() {
-      const messages = await fetchMessages();
-      if (Array.isArray(messages) && messages.length > 0) {
-        lastMessageId = messages[0].id;
-      }
-    })();
-  
-    setInterval(async () => {
-      const messages = await fetchMessages();
-      if (Array.isArray(messages) && messages.length > 0) {
-        const latestMessage = messages[0];
-        if (lastMessageId && latestMessage.id !== lastMessageId) {
-          showNotice();
-        }
-        lastMessageId = latestMessage.id;
-      }
-    }, 10000);
-  
-    const textarea = document.getElementById('response-input');
-    const charCounter = document.getElementById('char-counter');
-  
-    textarea.addEventListener('input', () => {
-      const remaining = 1999 - textarea.value.length;
-      charCounter.textContent = `${remaining} characters remaining`;
-    });
-  
-    document.getElementById('send-response').addEventListener('click', async () => {
-  const textarea = document.getElementById('response-input');
-  const sendButton = document.getElementById('send-response');
-  const message = textarea.value.trim();
-  const ticketId = '<%= ticket.identifier %>';
-
-  if (!message) {
-    alert('Message cannot be empty.');
-    return;
-  }
-
-  sendButton.disabled = true;
-  const originalButtonText = sendButton.innerHTML;
-  sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-
+// Close ticket
+document.getElementById('confirmCloseBtn').addEventListener('click', async () => {
   try {
-    const response = await fetch(`/open-tickets/${ticketId}/respond`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ message })
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      textarea.value = '';
-      
-      window.location.replace(window.location.href);
-    } else {
-      throw new Error(data.error || 'Failed to send response');
-    }
-  } catch (error) {
-    console.error('Error:', error);
-    alert(error.message || 'An error occurred while sending the response.');
-    
-    sendButton.disabled = false;
-    sendButton.innerHTML = originalButtonText;
-  }
+    const res = await fetch('/open-tickets/<%= ticket.identifier %>/close', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    if (res.ok) { window.location.href = '/open-tickets'; }
+    else { showToast('Lỗi đóng ticket', 'error'); }
+  } catch { showToast('Lỗi kết nối', 'error'); }
 });
-  </script>
-  
 
-</body>
-</html>
+// Close dialog on backdrop click
+document.getElementById('closeDialog').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+
+// Poll for new messages
+let lastId = null;
+async function pollMessages() {
+  try {
+    const res = await fetch('/open-tickets/<%= ticket.identifier %>/messages');
+    if (!res.ok) return;
+    const msgs = await res.json();
+    if (msgs.length > 0) {
+      if (lastId && msgs[0].id !== lastId) document.getElementById('newMsgNotice').classList.add('visible');
+      lastId = msgs[0].id;
+    }
+  } catch {}
+}
+pollMessages();
+setInterval(pollMessages, 12000);
+</script>
+
+<%- include('partials/shell-close') %>

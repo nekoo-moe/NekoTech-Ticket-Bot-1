@@ -144,21 +144,41 @@ app.locals.accentColorRgb = rgb;
   
 const isLoggedIn = async (req, res, next) => {
   if (req.isAuthenticated()) {
+    // Nếu chưa chọn server, redirect về server selection
+    if (!req.session.selectedGuildId) {
+      res.cookie('redirectAfterLogin', req.originalUrl);
+      return res.redirect('/servers');
+    }
+
     try {
-      const guild = client.guilds.cache.get(config.GuildID);
+      const guildId = req.session.selectedGuildId;
+      const guild = client.guilds.cache.get(guildId);
       if (guild && guild.members) {
         const member = await guild.members.fetch(req.user.id);
         if (member && member.roles) {
-          const supportRoles = Object.values(config.TicketCategories || {})
-            .flatMap(category => category.SupportRoles || []);
-          
-          const uniqueSupportRoles = [...new Set(supportRoles)];
-          
-          const userHasSupportRole = member.roles.cache.some((role) =>
-            uniqueSupportRoles.includes(role.id)
+
+          // ── Kiểm tra quyền Admin Discord (Owner hoặc Administrator) ──────
+          if (member.permissions.has('Administrator')) {
+            return next();
+          }
+
+          // ── Kiểm tra staffRoles từ SQLite config ─────────────────────────
+          const staffRoles = getConfig('staffRoles', []);
+
+          // ── Kiểm tra support roles từ categories trong SQLite ─────────────
+          const Categories = require('../../db/categories');
+          const allCats = Categories.findAll();
+          const catSupportRoles = allCats.flatMap(cat =>
+            Array.isArray(cat.supportRoles) ? cat.supportRoles : []
           );
 
-          if (userHasSupportRole) {
+          const allAllowedRoles = [...new Set([...staffRoles, ...catSupportRoles])];
+
+          const userHasRole = member.roles.cache.some(role =>
+            allAllowedRoles.includes(role.id)
+          );
+
+          if (userHasRole) {
             return next();
           }
         }
@@ -202,8 +222,80 @@ const transcriptAccessCheck = async (req, res, next) => {
   
 
 app.get('/auth/discord/callback', passport.authenticate('discord', { failureRedirect: '/login' }), (req, res) => {
-  const redirectUrl = req.cookies['redirectAfterLogin'] || '/';
-  res.redirect(redirectUrl);
+  // Sau khi login, redirect về server selection thay vì thẳng vào dashboard
+  const redirectUrl = req.cookies['redirectAfterLogin'];
+  if (redirectUrl && redirectUrl !== '/' && redirectUrl !== '/home') {
+    res.clearCookie('redirectAfterLogin');
+    res.redirect(redirectUrl);
+  } else {
+    res.redirect('/servers');
+  }
+});
+
+// ── Server Selection ──────────────────────────────────────────────────────────
+app.get('/servers', async (req, res) => {
+  if (!req.isAuthenticated()) {
+    res.cookie('redirectAfterLogin', '/servers');
+    return res.redirect('/login');
+  }
+  try {
+    // Lấy danh sách guilds mà bot đang có mặt
+    const botGuilds = client.guilds.cache;
+    const servers = [];
+
+    for (const [guildId, guild] of botGuilds) {
+      try {
+        // Kiểm tra user có quyền truy cập không
+        const member = await guild.members.fetch(req.user.id).catch(() => null);
+        if (!member) continue;
+
+        // Admin Discord hoặc có staff/support role
+        const staffRoles = require('../../db/config').getConfig('staffRoles', []);
+        const Categories = require('../../db/categories');
+        const allCats = Categories.findAll();
+        const catRoles = allCats.flatMap(c => Array.isArray(c.supportRoles) ? c.supportRoles : []);
+        const allRoles = [...new Set([...staffRoles, ...catRoles])];
+
+        const hasAccess = member.permissions.has('Administrator') ||
+          member.roles.cache.some(r => allRoles.includes(r.id));
+
+        if (hasAccess) {
+          servers.push({
+            id:          guild.id,
+            name:        guild.name,
+            icon:        guild.icon,
+            memberCount: guild.memberCount,
+          });
+        }
+      } catch (_) {}
+    }
+
+    res.render('select-server', {
+      user: req.user,
+      servers,
+      accentColorHex: app.locals.accentColorHex,
+      accentColorRgb: app.locals.accentColorRgb,
+    });
+  } catch (error) {
+    console.error('Error loading server list:', error);
+    res.status(500).render('error', { message: 'Lỗi tải danh sách máy chủ', accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb });
+  }
+});
+
+// Chọn server cụ thể — lưu vào session rồi redirect vào dashboard
+app.get('/select-server/:guildId', async (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/login');
+  const { guildId } = req.params;
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) return res.status(404).render('error', { message: 'Máy chủ không tồn tại hoặc bot chưa được thêm vào.', accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb });
+
+  // Kiểm tra quyền
+  const member = await guild.members.fetch(req.user.id).catch(() => null);
+  if (!member) return res.status(403).render('error', { message: 'Bạn không phải thành viên của máy chủ này.', accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb });
+
+  // Lưu guildId đã chọn vào session
+  req.session.selectedGuildId = guildId;
+  res.redirect('/home');
 });
 
 app.get('/auth', passport.authenticate('discord'));
@@ -237,11 +329,11 @@ app.get('/home', isLoggedIn, async (req, res) => {
       );
 
 
-    res.render('home', { user: req.user, guildStats: guildStats, averageRating: avgRating, recentTickets: ticketsWithUsernames, config: dconfig,
+    res.render('home', { user: req.user, guildStats: guildStats, averageRating: avgRating, recentTickets: ticketsWithUsernames, config: dconfig, accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb,
     });
   } catch (error) {
-    console.error('Error fetching data from MongoDB:', error);
-    res.render('home', { user: req.user, guildStats: null, averageRating: "0.0", recentTickets: [], });
+    console.error('Error fetching data:', error);
+    res.render('home', { user: req.user, guildStats: { totalTickets:0, totalMessages:0, averageResponse:'N/A', averageRating:0, totalReviews:0 }, averageRating: "0.0", recentTickets: [], accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb });
   }
 });
 
@@ -389,15 +481,17 @@ app.get('/transcript', transcriptAccessCheck, async (req, res) => {
 
     let supportR = false;
     
-    if (config.TicketCategories) {
-      const category = Object.values(config.TicketCategories).find(
-        cat => cat.CategoryName === ticketDB.ticketType
-      );
-      
-      if (category && category.SupportRoles) {
-        supportR = category.SupportRoles.some(role => userRoles.includes(role));
-      }
+    // Đọc từ SQLite thay vì config.TicketCategories
+    const CatsDB = require('../../db/categories');
+    const allCatsForTranscript = CatsDB.findAll();
+    const catForTicket = allCatsForTranscript.find(c => c.categoryName === ticketDB.ticketType);
+    if (catForTicket && Array.isArray(catForTicket.supportRoles)) {
+      supportR = catForTicket.supportRoles.some(role => userRoles.includes(role));
     }
+    // Admin Discord luôn có quyền
+    const guildForCheck = client.guilds.cache.get(config.GuildID);
+    const memberForCheck = guildForCheck?.members.cache.get(req.user.id);
+    if (memberForCheck?.permissions.has('Administrator')) supportR = true;
 
     const hasPermission =
       (ticketCreator && ticketCreator.id && req.user.id === ticketCreator.id) ||
@@ -422,11 +516,18 @@ app.get('/transcript', transcriptAccessCheck, async (req, res) => {
 app.get('/tickets', isLoggedIn, async (req, res) => {
   try {
     const userRoles = await getUserRoles(req.user.id, config.GuildID);
-    const accessibleCategories = Object.entries(config.TicketCategories || {})
-    .filter(([categoryId, category]) => 
-      category.SupportRoles?.some(role => userRoles.includes(role))
-    )
-    .map(([categoryId, category]) => category.CategoryName);
+    const accessibleCategories = (() => {
+      const CatsDB = require('../../db/categories');
+      const allCats = CatsDB.findAll();
+      // Admin Discord thấy tất cả categories
+      const guildMember = client.guilds.cache.get(config.GuildID)?.members.cache.get(req.user.id);
+      if (guildMember?.permissions.has('Administrator')) {
+        return allCats.map(c => c.categoryName);
+      }
+      return allCats
+        .filter(cat => (Array.isArray(cat.supportRoles) ? cat.supportRoles : []).some(r => userRoles.includes(r)))
+        .map(cat => cat.categoryName);
+    })();
 
     // Pagination
     const page = parseInt(req.query.page) || 1;
@@ -591,15 +692,17 @@ app.get('/open-tickets/:ticket_id', isLoggedIn, async (req, res) => {
 
     let supportR = false;
     
-    if (config.TicketCategories) {
-      const category = Object.values(config.TicketCategories).find(
-        cat => cat.CategoryName === ticket.ticketType
-      );
-      
-      if (category && category.SupportRoles) {
-        supportR = category.SupportRoles.some(role => userRoles.includes(role));
-      }
+    // Đọc từ SQLite thay vì config.TicketCategories
+    const CatsDB2 = require('../../db/categories');
+    const allCatsForTicket = CatsDB2.findAll();
+    const catForOpenTicket = allCatsForTicket.find(c => c.categoryName === ticket.ticketType);
+    if (catForOpenTicket && Array.isArray(catForOpenTicket.supportRoles)) {
+      supportR = catForOpenTicket.supportRoles.some(role => userRoles.includes(role));
     }
+    // Admin Discord luôn có quyền
+    const guildForCheck2 = client.guilds.cache.get(config.GuildID);
+    const memberForCheck2 = guildForCheck2?.members.cache.get(req.user.id);
+    if (memberForCheck2?.permissions.has('Administrator')) supportR = true;
 
     const hasPermission =
       (ticketCreator && ticketCreator.id && req.user.id === ticketCreator.id) ||
@@ -894,6 +997,299 @@ app.post('/blacklist', isLoggedIn, async (req, res) => {
   
 app.get('/', (req, res) => {
     res.redirect('/home');
+});
+
+// ── Setup Wizard ──────────────────────────────────────────────────────────────
+app.get('/setup-wizard', isLoggedIn, async (req, res) => {
+  try {
+    const { getAllConfig } = require('../../db/config');
+    const Categories = require('../../db/categories');
+    const Panels     = require('../../db/panels');
+    const cfg        = getAllConfig();
+    const categories = Categories.findAll();
+    const guildId    = req.session.selectedGuildId || config.GuildID;
+    const panels     = Panels.findAll(guildId);
+    res.render('setup-wizard', { user: req.user, cfg, categories, panels, config: dconfig, accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb });
+  } catch (error) {
+    console.error('Error loading setup wizard:', error);
+    res.status(500).render('error', { message: 'Lỗi tải trang cài đặt', accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb });
+  }
+});
+
+// API: Save section config
+app.post('/api/setup/save', isLoggedIn, async (req, res) => {
+  try {
+    const { setConfig } = require('../../db/config');
+    const { section, ...data } = req.body;
+
+    const setters = {
+      ticket: () => {
+        if (data.logsChannelID !== undefined) setConfig('ticket.logsChannelID', data.logsChannelID);
+        if (data.maxTickets    !== undefined) setConfig('ticket.maxTickets',    data.maxTickets);
+        if (data.deleteTime    !== undefined) setConfig('ticket.deleteTime',    data.deleteTime);
+        if (data.cooldown      !== undefined) setConfig('ticket.cooldown',      data.cooldown);
+        if (data.embedColor    !== undefined) setConfig('bot.embedColor',       data.embedColor);
+        if (data.staffRoles    !== undefined) setConfig('staffRoles',           data.staffRoles);
+        if (data.channelTopic  !== undefined) setConfig('ticket.channelTopic',  data.channelTopic);
+        if (data.mentionAuthor !== undefined) setConfig('ticket.mentionAuthor', data.mentionAuthor);
+        if (data.restrictClose !== undefined) setConfig('ticket.restrictClose', data.restrictClose);
+        if (data.closeReason   !== undefined) setConfig('ticket.closeReason',   data.closeReason);
+        if (data.selectMenu    !== undefined) setConfig('ticket.selectMenu',    data.selectMenu);
+      },
+      transcript: () => {
+        if (data.type                !== undefined) setConfig('transcript.type',                data.type);
+        if (data.saveInFolder        !== undefined) setConfig('transcript.saveInFolder',        data.saveInFolder);
+        if (data.saveImages          !== undefined) setConfig('transcript.saveImages',          data.saveImages);
+        if (data.messagesRequirement !== undefined) setConfig('transcript.messagesRequirement', data.messagesRequirement);
+      },
+      claiming: () => {
+        if (data.enabled          !== undefined) setConfig('claiming.enabled',              data.enabled);
+        if (data.maxPerStaff      !== undefined) setConfig('claiming.maxPerStaff',          data.maxPerStaff);
+        if (data.lockNewTickets   !== undefined) setConfig('claiming.lockNewTickets',        data.lockNewTickets);
+        if (data.autoClaimEnabled !== undefined) setConfig('claiming.autoClaim.enabled',    data.autoClaimEnabled);
+        if (data.autoClaimShowMsg !== undefined) setConfig('claiming.autoClaim.showMessage',data.autoClaimShowMsg);
+        if (data.moveEnabled      !== undefined) setConfig('claiming.moveEnabled',          data.moveEnabled);
+        if (data.moveCategoryID   !== undefined) setConfig('claiming.moveCategoryID',       data.moveCategoryID);
+        if (data.autoClaimMessage !== undefined) setConfig('claiming.autoClaim.message',    data.autoClaimMessage);
+      },
+      alert: () => {
+        if (data.enabled          !== undefined) setConfig('alert.enabled',                data.enabled);
+        if (data.time             !== undefined) setConfig('alert.time',                   data.time);
+        if (data.dmUser           !== undefined) setConfig('alert.dmUser',                 data.dmUser);
+        if (data.autoAlertEnabled !== undefined) setConfig('alert.autoAlert.enabled',      data.autoAlertEnabled);
+        if (data.inactiveTime     !== undefined) setConfig('alert.autoAlert.inactiveTime', data.inactiveTime);
+        if (data.message          !== undefined) setConfig('alert.message',                data.message);
+      },
+      workinghours: () => {
+        if (data.enabled      !== undefined) setConfig('workingHours.enabled',      data.enabled);
+        if (data.timezone     !== undefined) setConfig('workingHours.timezone',     data.timezone);
+        if (data.allowOutside !== undefined) setConfig('workingHours.allowOutside', data.allowOutside);
+        if (data.sendNotice   !== undefined) setConfig('workingHours.sendNotice',   data.sendNotice);
+        if (data.schedule     !== undefined) setConfig('workingHours.schedule',     data.schedule);
+      },
+      review: () => {
+        if (data.enabled        !== undefined) setConfig('review.enabled',              data.enabled);
+        if (data.askWhyModal    !== undefined) setConfig('review.askWhyModal',          data.askWhyModal);
+        if (data.channelEnabled !== undefined) setConfig('review.channel.enabled',      data.channelEnabled);
+        if (data.channelID      !== undefined) setConfig('review.channel.channelID',    data.channelID);
+        if (data.minimumWords   !== undefined) setConfig('review.minimumWords',         data.minimumWords);
+        if (data.maximumWords   !== undefined) setConfig('review.maximumWords',         data.maximumWords);
+      },
+      suggestion: () => {
+        if (data.enabled       !== undefined) setConfig('suggestion.enabled',       data.enabled);
+        if (data.channelID     !== undefined) setConfig('suggestion.channelID',     data.channelID);
+        if (data.createThreads !== undefined) setConfig('suggestion.createThreads', data.createThreads);
+      },
+      channelstats: () => {
+        const keys = ['totalTickets','openTickets','averageRating','memberCount'];
+        keys.forEach(k => {
+          if (data[k]) {
+            setConfig(`channelStats.${k}.enabled`,     data[k].enabled);
+            setConfig(`channelStats.${k}.channelID`,   data[k].channelID);
+            setConfig(`channelStats.${k}.channelName`, data[k].channelName);
+          }
+        });
+      },
+      archive: () => {
+        if (data.enabled           !== undefined) setConfig('archive.enabled',           data.enabled);
+        if (data.hideFromCreator   !== undefined) setConfig('archive.hideFromCreator',   data.hideFromCreator);
+        if (data.moveToCategory    !== undefined) setConfig('archive.moveToCategory',    data.moveToCategory);
+        if (data.categoryID        !== undefined) setConfig('archive.categoryID',        data.categoryID);
+        if (data.channelNamePrefix !== undefined) setConfig('archive.channelNamePrefix', data.channelNamePrefix);
+      },
+      vietqr: () => {
+        if (data.bankId        !== undefined) setConfig('vietqr.bankId',        data.bankId);
+        if (data.accountNo     !== undefined) setConfig('vietqr.accountNo',     data.accountNo);
+        if (data.accountName   !== undefined) setConfig('vietqr.accountName',   data.accountName);
+        if (data.template      !== undefined) setConfig('vietqr.template',      data.template);
+        if (data.onlyInTickets !== undefined) setConfig('vietqr.onlyInTickets', data.onlyInTickets);
+      },
+    };
+
+    if (setters[section]) {
+      setters[section]();
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: 'Section không hợp lệ' });
+    }
+  } catch (error) {
+    console.error('Error saving setup config:', error);
+    res.status(500).json({ error: 'Lỗi lưu cấu hình' });
+  }
+});
+
+// API: Create category
+app.post('/api/setup/category/create', isLoggedIn, async (req, res) => {
+  try {
+    const Categories = require('../../db/categories');
+    const { key, name, category_channel, support_roles, emoji, description, button_color, logs_channel, channel_name, embed_title, embed_message } = req.body;
+
+    if (!key || !name || !category_channel || !support_roles) {
+      return res.status(400).json({ error: 'Thiếu thông tin bắt buộc' });
+    }
+    if (!/^[a-z0-9-]+$/.test(key)) {
+      return res.status(400).json({ error: 'Key chỉ được chứa chữ thường, số và dấu gạch ngang' });
+    }
+    if (Categories.findByKey(key)) {
+      return res.status(400).json({ error: `Danh mục "${key}" đã tồn tại` });
+    }
+
+    const supportRoles = support_roles.split(',').map(r => r.trim()).filter(Boolean);
+
+    Categories.create({
+      categoryKey:         key,
+      categoryName:        name,
+      description:         description || '',
+      parentCategoryID:    category_channel,
+      embedTitle:          embed_title || `Ticket ${name} ({category})`,
+      embedMessage:        embed_message || '> Cảm ơn bạn đã liên hệ.\n> Vui lòng mô tả vấn đề và chờ nhân viên hỗ trợ.',
+      categoryEmoji:       emoji || '',
+      buttonColor:         button_color || 'Green',
+      supportRoles,
+      mentionSupportRoles: false,
+      channelName:         channel_name || 'ticket-{username}',
+      logsChannelID:       logs_channel || '',
+      requiredRoles:       [],
+      questions:           [],
+      sortOrder:           Categories.findAll().length,
+      enabled:             true,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error creating category:', error);
+    res.status(500).json({ error: 'Lỗi tạo danh mục' });
+  }
+});
+
+// API: Delete category
+app.post('/api/setup/category/delete', isLoggedIn, async (req, res) => {
+  try {
+    const Categories = require('../../db/categories');
+    const { key } = req.body;
+    if (!key) return res.status(400).json({ error: 'Thiếu key' });
+    const cat = Categories.findByKey(key);
+    if (!cat) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
+    Categories.delete(key);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ error: 'Lỗi xóa danh mục' });
+  }
+});
+
+// API: Update category
+app.post('/api/setup/category/update', isLoggedIn, async (req, res) => {
+  try {
+    const Categories = require('../../db/categories');
+    const { key, name, emoji, category_channel, support_roles, logs_channel, channel_name, embed_title, embed_message, button_color, mention_roles } = req.body;
+    if (!key) return res.status(400).json({ error: 'Thiếu key' });
+    if (!Categories.findByKey(key)) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
+
+    const updates = {};
+    if (name)                        updates.categoryName        = name;
+    if (emoji !== undefined)         updates.categoryEmoji       = emoji;
+    if (category_channel)            updates.parentCategoryID    = category_channel;
+    if (logs_channel !== undefined)  updates.logsChannelID       = logs_channel;
+    if (channel_name)                updates.channelName         = channel_name;
+    if (embed_title)                 updates.embedTitle          = embed_title;
+    if (embed_message)               updates.embedMessage        = embed_message;
+    if (button_color)                updates.buttonColor         = button_color;
+    if (mention_roles !== undefined) updates.mentionSupportRoles = mention_roles;
+    if (support_roles)               updates.supportRoles        = support_roles.split(',').map(r => r.trim()).filter(Boolean);
+
+    Categories.update(key, updates);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating category:', error);
+    res.status(500).json({ error: 'Lỗi cập nhật danh mục' });
+  }
+});
+
+// API: Send panel to Discord channel
+app.post('/api/setup/panel/send', isLoggedIn, async (req, res) => {
+  try {
+    const { panelId, channelId, title, desc, color, categories: catKeys } = req.body;
+    if (!panelId || !channelId || !catKeys || catKeys.length === 0) {
+      return res.status(400).json({ error: 'Thiếu thông tin bắt buộc' });
+    }
+
+    const guildId = req.session.selectedGuildId || config.GuildID;
+    const guild   = client.guilds.cache.get(guildId);
+    if (!guild) return res.status(404).json({ error: 'Không tìm thấy máy chủ' });
+
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel || !channel.isTextBased()) {
+      return res.status(404).json({ error: 'Không tìm thấy kênh hoặc kênh không phải text channel' });
+    }
+
+    const Categories = require('../../db/categories');
+    const Panels     = require('../../db/panels');
+    const { getConfig: gc } = require('../../db/config');
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+
+    const embedColor = color || gc('bot.embedColor', '#59d4b5');
+    const embed = new EmbedBuilder().setColor(embedColor).setDescription(desc || '> Nhấn vào nút bên dưới để tạo ticket hỗ trợ.');
+    if (title) embed.setTitle(title);
+
+    const useSelectMenu = gc('ticket.selectMenu', true);
+    const colorMap = { Green: ButtonStyle.Success, Blurple: ButtonStyle.Primary, Gray: ButtonStyle.Secondary, Red: ButtonStyle.Danger };
+
+    const cats = catKeys.map(k => Categories.findByKey(k)).filter(Boolean);
+    if (cats.length === 0) return res.status(400).json({ error: 'Không tìm thấy danh mục nào' });
+
+    let components = [];
+    const options = cats.map(cat => ({
+      label: cat.categoryName, value: `ticket-${cat.categoryKey}`,
+      description: cat.description || undefined, emoji: cat.categoryEmoji || undefined,
+    }));
+
+    if (useSelectMenu) {
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId('categorySelect').setPlaceholder('Chọn loại ticket...')
+        .setMinValues(1).setMaxValues(1)
+        .addOptions(options.map(o => {
+          const opt = { label: o.label, value: o.value };
+          if (o.description) opt.description = o.description;
+          if (o.emoji) opt.emoji = o.emoji;
+          return opt;
+        }));
+      components = [new ActionRowBuilder().addComponents(menu)];
+    } else {
+      const buttons = cats.map(cat => {
+        const btn = new ButtonBuilder()
+          .setCustomId(`ticket-${cat.categoryKey}`).setLabel(cat.categoryName)
+          .setStyle(colorMap[cat.buttonColor] || ButtonStyle.Success);
+        if (cat.categoryEmoji) btn.setEmoji(cat.categoryEmoji);
+        return btn;
+      });
+      for (let i = 0; i < buttons.length; i += 5) {
+        components.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
+      }
+    }
+
+    const sentMsg = await channel.send({ embeds: [embed], components });
+    Panels.upsert(guildId, panelId, sentMsg.id, useSelectMenu ? options : []);
+    res.json({ success: true, messageId: sentMsg.id });
+  } catch (error) {
+    console.error('Error sending panel:', error);
+    res.status(500).json({ error: 'Lỗi gửi panel: ' + error.message });
+  }
+});
+
+// API: Delete panel record
+app.post('/api/setup/panel/delete', isLoggedIn, async (req, res) => {
+  try {
+    const Panels  = require('../../db/panels');
+    const guildId = req.session.selectedGuildId || config.GuildID;
+    const { panelId } = req.body;
+    if (!panelId) return res.status(400).json({ error: 'Thiếu panelId' });
+    Panels.delete(guildId, panelId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting panel:', error);
+    res.status(500).json({ error: 'Lỗi xóa panel' });
+  }
 });
 
   app.get('/login', (req, res) => {

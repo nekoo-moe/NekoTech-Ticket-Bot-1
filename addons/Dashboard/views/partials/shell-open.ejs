@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' · Heiznerd Tickets' : 'Heiznerd Tickets' %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    :root {
+      --accent-color: <%= typeof accentColorHex !== 'undefined' ? accentColorHex : '#59d4b5' %>;
+      --accent-color-rgb: <%= typeof accentColorRgb !== 'undefined' ? accentColorRgb : '89, 212, 181' %>;
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Topbar -->
+  <header class="app-topbar">
+    <div class="topbar-brand">
+      <div class="topbar-brand-icon"><i class="fas fa-ticket-alt"></i></div>
+      Heiznerd Tickets
+    </div>
+    <div class="topbar-spacer"></div>
+    <% if (typeof user !== 'undefined' && user) { %>
+    <!-- Switch server button -->
+    <a href="/servers" class="btn btn-ghost btn-sm" style="gap:var(--sp-2);" title="Đổi máy chủ">
+      <i class="fas fa-server"></i>
+      <span style="display:none;" class="topbar-server-label">Đổi server</span>
+    </a>
+    <div class="topbar-user" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">
+      <% if (user.avatar) { %>
+        <img src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.webp?size=64"
+             alt="<%= user.username %>" class="topbar-avatar">
+      <% } else { %>
+        <div class="topbar-avatar" style="background:var(--surface-3);display:grid;place-items:center;font-size:0.7rem;color:var(--ink-3);">
+          <i class="fas fa-user"></i>
+        </div>
+      <% } %>
+      <span class="topbar-username"><%= user.username %></span>
+      <i class="fas fa-chevron-down" style="font-size:0.65rem;color:var(--ink-3);"></i>
+      <div class="topbar-dropdown" role="menu">
+        <a href="/logout" role="menuitem">
+          <i class="fas fa-sign-out-alt" style="color:var(--ink-3);width:14px;"></i>
+          Đăng xuất
+        </a>
+      </div>
+    </div>
+    <% } %>
+  </header>
+
+  <!-- Sidebar -->
+  <nav class="app-sidebar" aria-label="Navigation">
+    <span class="nav-section-label">Tổng quan</span>
+    <a href="/home" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'home' ? 'active' : '' %>">
+      <i class="fas fa-home nav-icon"></i><span>Trang chủ</span>
+    </a>
+    <a href="/statistics" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'statistics' ? 'active' : '' %>">
+      <i class="fas fa-chart-bar nav-icon"></i><span>Thống kê</span>
+    </a>
+
+    <span class="nav-section-label">Ticket</span>
+    <a href="/open-tickets" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'open-tickets' ? 'active' : '' %>">
+      <i class="fas fa-inbox nav-icon"></i><span>Đang mở</span>
+      <% if (typeof openTicketsTotal !== 'undefined' && openTicketsTotal > 0) { %>
+        <span class="nav-badge"><%= openTicketsTotal %></span>
+      <% } %>
+    </a>
+    <a href="/tickets" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'tickets' ? 'active' : '' %>">
+      <i class="fas fa-history nav-icon"></i><span>Lịch sử</span>
+    </a>
+    <a href="/reviews" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'reviews' ? 'active' : '' %>">
+      <i class="fas fa-star nav-icon"></i><span>Đánh giá</span>
+    </a>
+
+    <span class="nav-section-label">Quản lý</span>
+    <a href="/blacklist" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'blacklist' ? 'active' : '' %>">
+      <i class="fas fa-ban nav-icon"></i><span>Blacklist</span>
+    </a>
+    <a href="/setup-wizard" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'setup' ? 'active' : '' %>">
+      <i class="fas fa-sliders-h nav-icon"></i><span>Cài đặt</span>
+    </a>
+  </nav>
+
+  <!-- Main content -->
+  <main class="app-main">

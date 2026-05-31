@@ -230,3 +230,104 @@ Error: listen EADDRINUSE: address already in use :::3000
     at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\ready.js:285:21)
 
 [5/31/2026, 8:46:39 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 8:53:24 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 8:53:28 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 8:55:34 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 8:55:38 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 8:56:24 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 8:56:31 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 9:20:21 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 9:20:24 AM] [uncaughtException] [v26.1.1-STABLE]
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:2008:16)
+    at listenInCluster (node:net:2065:12)
+    at Server.listen (node:net:2170:7)
+    at app.listen (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\express\lib\application.js:635:24)
+    at module.exports.register (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\addons\Dashboard\dashboard.js:1123:9)
+    at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\ready.js:285:21)
+
+[5/31/2026, 9:20:25 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 9:21:11 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 9:21:15 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 9:50:30 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 9:50:33 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 10:21:39 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 10:21:43 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 10:22:44 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 10:22:51 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 10:24:56 AM] [SLASH COMMAND] Command: vouch, User: heiznerd_2008
+
+[5/31/2026, 10:31:42 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 10:31:47 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 10:32:34 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 10:32:38 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 10:34:09 AM] [INTERACTION] categorySelect
+
+[5/31/2026, 10:34:09 AM] [ERROR] [v26.1.1-STABLE]
+TypeError: Cannot read properties of undefined (reading 'nigga')
+    at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:94:53)
+    at Client.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\index.js:151:39)
+    at Client.emit (node:events:509:28)
+    at InteractionCreateAction.handle (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\actions\InteractionCreate.js:103:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\ws\dist\index.js:1190:51)
+    at WebSocketShard.emit (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+
+[5/31/2026, 10:34:20 AM] [INTERACTION] categorySelect
+
+[5/31/2026, 10:34:20 AM] [ERROR] [v26.1.1-STABLE]
+TypeError: Cannot read properties of undefined (reading 'nigga')
+    at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:94:53)
+    at Client.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\index.js:151:39)
+    at Client.emit (node:events:509:28)
+    at InteractionCreateAction.handle (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\actions\InteractionCreate.js:103:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\ws\dist\index.js:1190:51)
+    at WebSocketShard.emit (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)

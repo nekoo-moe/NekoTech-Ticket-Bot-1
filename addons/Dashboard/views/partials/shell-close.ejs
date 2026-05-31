@@ -1,0 +1,31 @@
+  </main><!-- /app-main -->
+</div><!-- /app-shell -->
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+<script>
+// Toast helper
+function showToast(message, type = 'success') {
+  const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<i class="fas ${icons[type] || icons.info} toast-icon"></i><span>${message}</span>`;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(8px)'; t.style.transition = '200ms'; setTimeout(() => t.remove(), 220); }, 3200);
+}
+
+// Topbar user dropdown keyboard
+document.querySelectorAll('.topbar-user').forEach(el => {
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const expanded = el.getAttribute('aria-expanded') === 'true';
+      el.setAttribute('aria-expanded', String(!expanded));
+    }
+    if (e.key === 'Escape') el.setAttribute('aria-expanded', 'false');
+  });
+});
+</script>
+</body>
+</html>
