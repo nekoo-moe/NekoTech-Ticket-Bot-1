@@ -13,8 +13,8 @@ const app = express();
 
 const { Discord, ChannelType} = require("discord.js");
 const fs = require('fs');
-const yaml = require("js-yaml")
-const config  = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
+const yaml = require("js-yaml");
+const config = require('../../config');
 const dconfig = yaml.load(fs.readFileSync('./addons/Dashboard/config.yml', 'utf8'))
 
 // SQLite DB modules (thay thế Mongoose)
@@ -132,7 +132,6 @@ function hexToRgb(hex) {
 }
 
 function getAccentColor() {
-  const config = yaml.load(fs.readFileSync('config.yml', 'utf8'));
   const hexColor = config.EmbedColors || getConfig('bot.embedColor', '#5e99ff');
   const rgbColor = hexToRgb(hexColor);
   return { hex: hexColor, rgb: rgbColor };

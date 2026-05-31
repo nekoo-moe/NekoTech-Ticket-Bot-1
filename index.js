@@ -56,23 +56,9 @@ const client = new Client({
 
 let config = ""
 try {
-  config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
+  config = require('./config')
   } catch (e) {
-    if (e instanceof yaml.YAMLException) {
-      console.error(color.red('An error was found in your config.yml file'), e.message);
-      console.error(``);
-      console.error(color.yellow(`Error position: Line ${e.mark.line + 1}, Column ${e.mark.column + 1}`));
-      console.error(``);
-
-      console.error(color.red('IMPORTANT INFORMATION:'));
-      console.error(color.yellow('YAML files are strict about how text is spaced and positioned.'));
-      console.error(color.yellow('Make sure every line is correctly lined up.'));
-      console.error(color.yellow('Use spaces for indentation and keep them consistent.'));
-      console.error(color.yellow('Check that each section starts with the right number of spaces.'));
-      console.error(color.yellow('The message above should display the part that is not formatted properly, and the location.'));
-    } else {
-      console.error(color.red('Error reading configuration file:'), e.message);
-    }
+    console.error(color.red('Error loading configuration:'), e.message);
     process.exit(1); 
   }
 

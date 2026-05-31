@@ -1,9 +1,7 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+﻿const { SlashCommandBuilder } = require('@discordjs/builders');
 const Discord = require ("discord.js")
-const fs = require('fs');
-const yaml = require("js-yaml")
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
+const config = require('../../config')
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const utils = require("../../utils.js");
 const ms = require('ms');
 const Tickets = require("../../db/tickets");
@@ -16,7 +14,7 @@ module.exports = {
     async execute(interaction, client) {
         const ticketDB = Tickets.findByChannelID(interaction.channel.id);
         if(!ticketDB) return interaction.reply({ content: config.Locale.NotInTicketChannel, flags: Discord.MessageFlags.Ephemeral })
-        if(config.TicketAlert.Enabled === false) return interaction.reply({ content: "This command has been disabled in the config!", flags: Discord.MessageFlags.Ephemeral })
+        if(config.TicketAlert.Enabled === false) return interaction.reply({ content: "Lệnh này đang bị tắt!", flags: Discord.MessageFlags.Ephemeral })
 
         
         let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);

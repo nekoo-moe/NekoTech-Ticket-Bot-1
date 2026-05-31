@@ -1,7 +1,6 @@
-const { Discord, ActionRowBuilder, ButtonBuilder, EmbedBuilder, InteractionType, MessageFlags, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+﻿const { Discord, ActionRowBuilder, ButtonBuilder, EmbedBuilder, InteractionType, MessageFlags, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const fs = require('fs');
-const yaml = require("js-yaml");
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
+const config = require('../config');
 const utils  = require("../utils.js");
 const moment = require('moment-timezone');
 const { t }  = require("../lang/index");
@@ -19,6 +18,129 @@ const color = require('ansi-colors');
 const { eventHandler } = require('../utils.js');
 const { SnowflakeUtil } = require("discord.js")
 const { incrementStat, trackRating } = require("../staffStats.js");
+
+// ── Compatibility shims — đọc từ SQLite thay vì config.yml cũ ────────────────
+
+// ── Config đã được load từ config/index.js (SQLite-backed) ──────────────────
+// Không cần patchConfigFromDB() nữa — config/index.js xử lý tất cả.
+
+// ── Model shims — thay Mongoose bằng SQLite wrappers ─────────────────────────
+// ── Model shims — thay Mongoose bằng SQLite wrappers ─────────────────────────
+// Các hàm này giả lập API Mongoose để không cần sửa từng dòng code bên dưới
+
+const ticketModel = {
+  findOne: (query) => {
+    if (query.channelID) return Promise.resolve(Tickets.findByChannelID(query.channelID));
+    if (query.userID && query.status === 'Open') {
+      const open = Tickets.findOpenByUserID(query.userID, config.GuildID);
+      return Promise.resolve(open.length > 0 ? open[0] : null);
+    }
+    if (query.closeNotificationTime) {
+      // findOne với closeNotificationTime — dùng findByChannelID
+      if (query.channelID) return Promise.resolve(Tickets.findByChannelID(query.channelID));
+    }
+    return Promise.resolve(null);
+  },
+  countDocuments: (query) => {
+    if (query.claimUser && query.claimed) {
+      const all = Tickets.findAllOpen(config.GuildID);
+      const count = all.filter(t => t.claimUser === query.claimUser && t.claimed).length;
+      return Promise.resolve(count);
+    }
+    return Promise.resolve(0);
+  },
+  updateOne: (filter, update) => {
+    const channelID = filter.channelID;
+    if (!channelID) return Promise.resolve();
+    const setData = update.$set || update;
+    const unsetData = update.$unset || {};
+    const updates = { ...setData };
+    for (const k of Object.keys(unsetData)) updates[k] = null;
+    Tickets.updateByChannelID(channelID, updates);
+    return Promise.resolve();
+  },
+  findOneAndUpdate: (filter, update) => {
+    const channelID = filter.channelID;
+    if (!channelID) return Promise.resolve(null);
+    const setData = update.$set || update;
+    const unsetData = update.$unset || {};
+    const updates = { ...setData };
+    for (const k of Object.keys(unsetData)) updates[k] = null;
+    Tickets.updateByChannelID(channelID, updates);
+    return Promise.resolve(Tickets.findByChannelID(channelID));
+  },
+  // Constructor shim — new ticketModel({...}).save()
+};
+// Cho phép dùng new ticketModel({...})
+function TicketModelConstructor(data) { this._data = data; }
+TicketModelConstructor.findOne        = ticketModel.findOne;
+TicketModelConstructor.countDocuments = ticketModel.countDocuments;
+TicketModelConstructor.updateOne      = ticketModel.updateOne;
+TicketModelConstructor.findOneAndUpdate = ticketModel.findOneAndUpdate;
+TicketModelConstructor.prototype.save = function() {
+  try { Tickets.create(this._data); } catch (_) {}
+  return Promise.resolve(this);
+};
+const ticketModelClass = TicketModelConstructor;
+// Override ticketModel để hỗ trợ cả new và static calls
+Object.assign(ticketModel, { prototype: TicketModelConstructor.prototype });
+
+const blacklistModel = {
+  findOne: (query) => {
+    const userId = query.userId;
+    if (!userId) return Promise.resolve(null);
+    const isBlacklisted = Blacklist.isBlacklisted(userId);
+    return Promise.resolve(isBlacklisted ? { userId, blacklisted: true } : null);
+  },
+};
+
+const guildModel = {
+  findOne: (query) => {
+    return Promise.resolve(Guild.getOrCreate(query.guildID || config.GuildID));
+  },
+  updateOne: (filter, update) => {
+    const guildID = filter.guildID || config.GuildID;
+    const setData  = update.$set  || {};
+    const incData  = update.$inc  || {};
+    const pushData = update.$push || {};
+
+    if (Object.keys(setData).length > 0) Guild.update(guildID, setData);
+    for (const [k, v] of Object.entries(incData)) Guild.increment(guildID, k, v);
+
+    // Handle $push — append to JSON array field
+    for (const [field, val] of Object.entries(pushData)) {
+      const stats = Guild.getOrCreate(guildID);
+      let arr = Array.isArray(stats[field]) ? [...stats[field]] : [];
+      const each = val?.$each;
+      if (each) arr = arr.concat(each);
+      else arr.push(val);
+      Guild.update(guildID, { [field]: arr });
+    }
+
+    return Promise.resolve();
+  },
+};
+
+const ticketPanelModel = {
+  findOne: (query) => {
+    if (query.msgID) {
+      const all = Panels.findAll(config.GuildID);
+      const panel = all.find(p => p.msgID === query.msgID);
+      return Promise.resolve(panel || null);
+    }
+    return Promise.resolve(null);
+  },
+};
+
+const reviewsModel = {
+  findOne: (query) => {
+    if (query.reviewDMUserMsgID) {
+      const row = db.prepare('SELECT * FROM reviews WHERE reviewDMUserMsgID = ?').get(query.reviewDMUserMsgID);
+      return Promise.resolve(row || null);
+    }
+    return Promise.resolve(null);
+  },
+};
 
 const Cooldown = new Map();
 
@@ -89,14 +211,7 @@ if (interaction.values && interaction.values[0]) {
     sMenu = null;
 }
 
-    if (sMenu && sMenu.startsWith('ticket-')) {
-      const categoryId = sMenu.replace('ticket-', '');
-      const categoryConfig = config.TicketCategories[categoryId];
-        
-      if (!categoryConfig || !categoryConfig.Questions || categoryConfig.Questions.length === 0) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      }
-    }
+    // deferReply cho ticket- được xử lý bên dưới tại handleTicketCreation
 
 function validateWorkingHours(interaction) {
   return new Promise((resolve) => {
@@ -340,7 +455,7 @@ function validateWorkingHours(interaction) {
       if (!interaction.guild.channels.cache.get(categoryConfig.ParentCategoryID)) {
         console.log('\x1b[31m%s\x1b[0m', `[WARNING] ${categoryId}.ParentCategoryID is not a valid category!`);
         return interaction.editReply({ 
-          content: "The ticket category for this ticket type doesn't exist. Please contact an administrator.", flags: MessageFlags.Ephemeral
+          content: "Danh mục ticket không tồn tại. Vui lòng liên hệ quản trị viên.", flags: MessageFlags.Ephemeral
         });
       }
 
@@ -619,7 +734,7 @@ function validateWorkingHours(interaction) {
               response: responses[question.customId] || '',
             }));
             
-            const newModel = new ticketModel({
+            const newModel = Tickets.create({
                 guildID: interaction.guild.id,
                 channelID: channel.id,
                 userID: interaction.user.id,
@@ -627,19 +742,18 @@ function validateWorkingHours(interaction) {
                 button: categoryId,
                 msgID: m2.id,
                 claimed: false,
-                claimUser: "",
+                claimUser: null,
                 messages: 0,
-                lastMessageSent: Date.now(),
+                lastMessageSent: new Date().toISOString(),
                 status: "Open",
-                closeUserID: "",
+                closeUserID: null,
                 waitingReplyFrom: "staff",
                 questions: questionsWithResponses,
-                ticketCreationDate: Date.now(),
+                ticketCreationDate: new Date().toISOString(),
                 identifier: customIdentifier,
             });
-            await newModel.save();
           } else {
-            const newModel = new ticketModel({
+            const newModel = Tickets.create({
                 guildID: interaction.guild.id,
                 channelID: channel.id,
                 userID: interaction.user.id,
@@ -647,16 +761,15 @@ function validateWorkingHours(interaction) {
                 button: categoryId,
                 msgID: m2.id,
                 claimed: false,
-                claimUser: "",
+                claimUser: null,
                 messages: 0,
-                lastMessageSent: Date.now(),
+                lastMessageSent: new Date().toISOString(),
                 status: "Open",
-                closeUserID: "",
+                closeUserID: null,
                 waitingReplyFrom: "staff",
-                ticketCreationDate: Date.now(),
+                ticketCreationDate: new Date().toISOString(),
                 identifier: customIdentifier,
             });
-            await newModel.save();
           }
 
           // Update priority info if active
@@ -691,7 +804,7 @@ function validateWorkingHours(interaction) {
         if (!categoryConfig) {
           console.error(`Invalid category configuration for ${categoryId}`);
           return interaction.reply({ 
-            content: 'An error occurred with ticket configuration.', flags: MessageFlags.Ephemeral
+            content: '�� x?y ra l?i c?u h�nh ticket.', flags: MessageFlags.Ephemeral
           });
         }
 
@@ -722,7 +835,7 @@ function validateWorkingHours(interaction) {
             console.log(`- Interaction Age at Error: ${Date.now() - interactionCreationTime} ms`);
             
             return interaction.editReply({ 
-              content: 'Failed to create ticket. Please try again.', flags: MessageFlags.Ephemeral
+              content: 'Kh�ng th? t?o ticket. Vui l�ng th? l?i.', flags: MessageFlags.Ephemeral
             });
           }
         }
@@ -739,7 +852,7 @@ function validateWorkingHours(interaction) {
           console.error('\x1b[31m%s\x1b[0m', 'Modal component error:', modalError);
           
           return interaction.reply({ 
-            content: 'Failed to prepare ticket form. Please contact support.', flags: MessageFlags.Ephemeral
+            content: 'Kh�ng th? chu?n b? form ticket. Vui l�ng li�n h? h? tr?.', flags: MessageFlags.Ephemeral
           });
         }
 
@@ -753,7 +866,7 @@ function validateWorkingHours(interaction) {
           console.error('\x1b[31m%s\x1b[0m', 'Failed to show modal:', modalShowError);
           
           return interaction.reply({ 
-            content: 'Unable to open ticket form. Please try again.', flags: MessageFlags.Ephemeral
+            content: 'Kh�ng th? m? form ticket. Vui l�ng th? l?i.', flags: MessageFlags.Ephemeral
           });
         }
       } catch (error) {
@@ -767,11 +880,11 @@ function validateWorkingHours(interaction) {
         try {
           if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
-              content: 'An unexpected error occurred. Please try again or contact support.', flags: MessageFlags.Ephemeral
+              content: '�� x?y ra l?i kh�ng mong mu?n. Vui l�ng th? l?i.', flags: MessageFlags.Ephemeral
             });
           } else if (interaction.deferred) {
             await interaction.editReply({
-              content: 'An unexpected error occurred. Please try again or contact support.', flags: MessageFlags.Ephemeral
+              content: '�� x?y ra l?i kh�ng mong mu?n. Vui l�ng th? l?i.', flags: MessageFlags.Ephemeral
             });
           }
         } catch (fallbackError) {
@@ -792,13 +905,13 @@ function validateWorkingHours(interaction) {
     async function handleModalSubmission(interaction, categoryConfig, categoryId) {
       try {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(deferError => {
-          console.error('Failed to defer modal reply:', deferError);
+          console.error('Lỗi defer modal reply:', deferError);
         });
 
         if (!categoryConfig || !categoryConfig.Questions) {
           console.error('Invalid category configuration or missing questions');
           return interaction.editReply({
-            content: 'Ticket configuration error. Please contact support.', flags: MessageFlags.Ephemeral
+            content: 'L?i c?u h�nh ticket. Vui l�ng li�n h? h? tr?.', flags: MessageFlags.Ephemeral
           });
         }
 
@@ -858,7 +971,7 @@ function validateWorkingHours(interaction) {
         } catch (creationError) {
           console.error('Ticket creation error:', creationError);
           return interaction.editReply({
-            content: 'Failed to create ticket. Please try again or contact support.', flags: MessageFlags.Ephemeral
+            content: 'Kh�ng th? t?o ticket. Vui l�ng th? l?i ho?c li�n h? h? tr?.', flags: MessageFlags.Ephemeral
           });
         }
       } catch (error) {
@@ -867,11 +980,11 @@ function validateWorkingHours(interaction) {
         try {
           if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
-              content: 'An unexpected error occurred during ticket submission.', flags: MessageFlags.Ephemeral
+              content: '�� x?y ra l?i khi g?i ticket.', flags: MessageFlags.Ephemeral
             });
           } else if (interaction.deferred) {
             await interaction.editReply({
-              content: 'An unexpected error occurred during ticket submission.', flags: MessageFlags.Ephemeral
+              content: '�� x?y ra l?i khi g?i ticket.', flags: MessageFlags.Ephemeral
             });
           }
         } catch (fallbackError) {
@@ -898,7 +1011,7 @@ function validateWorkingHours(interaction) {
     const handleTicketCategory = async (categoryId, categoryConfig, interaction) => {
 
       if (!categoryConfig || (!categoryConfig.Questions || categoryConfig.Questions.length === 0)) {  
-        if (!interaction.replied && !interaction.deferred) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        if (!interaction.replied && !interaction.deferred) await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
         const customIdentifier = generateUniqueIdentifier();
         
         if (config.TicketSettings.SelectMenu) {
@@ -932,7 +1045,7 @@ function validateWorkingHours(interaction) {
     if (interaction.customId === 'closeTicket') {
       const handleCloseTicket = async () => {
         if(!config.TicketSettings.TicketCloseReason) {
-          await interaction.deferReply();
+          await interaction.deferReply().catch(() => {});
         }
 
         let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);
@@ -973,7 +1086,7 @@ function validateWorkingHours(interaction) {
     }
 
   if (interaction.customId === 'ticketclaim') {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
     let ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
 
@@ -983,7 +1096,7 @@ function validateWorkingHours(interaction) {
     });
 
 
-    if (config.ClaimingSystem.Enabled === false) return interaction.editReply({ content: "Ticket claiming is disabled in the config!", flags: MessageFlags.Ephemeral })
+    if (config.ClaimingSystem.Enabled === false) return interaction.editReply({ content: "H? th?ng nh?n ticket dang b? t?t!", flags: MessageFlags.Ephemeral })
 
     let supportRole = await utils.checkIfUserHasSupportRoles(interaction, null);
     if (config.ClaimingSystem.Enabled && !supportRole) {
@@ -1139,7 +1252,7 @@ function validateWorkingHours(interaction) {
   }
 
   if (interaction.customId === 'ticketunclaim') {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
     let ticketDB = await ticketModel.findOne({ channelID: interaction.channel.id });
 
@@ -1148,8 +1261,8 @@ function validateWorkingHours(interaction) {
       if (e) console.log(e);
     });
 
-    if (config.ClaimingSystem.Enabled === false) return interaction.editReply({ content: "Ticket claiming is disabled in the config!", flags: MessageFlags.Ephemeral })
-    if (ticketDB.claimed === false) return interaction.editReply({ content: "This ticket has not been claimed!", flags: MessageFlags.Ephemeral })
+    if (config.ClaimingSystem.Enabled === false) return interaction.editReply({ content: "H? th?ng nh?n ticket dang b? t?t!", flags: MessageFlags.Ephemeral })
+    if (ticketDB.claimed === false) return interaction.editReply({ content: "Ticket n�y chua du?c nh?n!", flags: MessageFlags.Ephemeral })
     let msgClaimUserVar = config.Locale.ticketDidntClaim.replace(/{user}/g, `<@!${ticketDB.claimUser}>`);
     if (ticketDB.claimUser !== interaction.user.id && !interaction.member.permissions.has("ManageGuild")) return interaction.editReply({ content: msgClaimUserVar, flags: MessageFlags.Ephemeral });
 
@@ -1299,10 +1412,10 @@ function validateWorkingHours(interaction) {
 
 // Upvote button
 if (interaction.customId === 'upvote') {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
     const suggestion = await suggestionModel.findOne({ msgID: interaction.message.id });
-    if (!suggestion) return interaction.editReply('Suggestion not found in the database.');
+    if (!suggestion) return interaction.editReply('Không tìm thấy đề xuất trong cơ sở dữ liệu.');
 
     const statsDB = await guildModel.findOne({ guildID: config.GuildID });
 
@@ -1389,10 +1502,10 @@ if (interaction.customId === 'upvote') {
 
 // Downvote button
 if (interaction.customId === 'downvote') {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
     const suggestion = await suggestionModel.findOne({ msgID: interaction.message.id });
-    if (!suggestion) return interaction.editReply('Suggestion not found in the database.');
+    if (!suggestion) return interaction.editReply('Không tìm thấy đề xuất trong cơ sở dữ liệu.');
 
     const statsDB = await guildModel.findOne({ guildID: config.GuildID });
 
@@ -1479,10 +1592,10 @@ if (interaction.customId === 'downvote') {
 
 // Reset vote button
 if (interaction.customId === 'resetvote') {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
     const suggestion = await suggestionModel.findOne({ msgID: interaction.message.id });
-    if (!suggestion) return interaction.editReply('Suggestion not found in the database.');
+    if (!suggestion) return interaction.editReply('Không tìm thấy đề xuất trong cơ sở dữ liệu.');
 
     let noVoteVariable = config.Locale.suggestionNoVote.replace(/{link}/g, `https://discord.com/channels/${interaction.guild.id}/${interaction.channel.id}/${suggestion.msgID}`);
     let noVote = new EmbedBuilder()
@@ -1570,10 +1683,10 @@ if (interaction.customId === 'resetvote') {
 // Accept suggestion
 if (interaction.isMessageContextMenuCommand() && interaction.commandName.startsWith('Accept')) {
     if (config.SuggestionSettings.EnableAcceptDenySystem === false) return;
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
     const suggestion = await suggestionModel.findOne({ msgID: interaction.targetId });
-    if (!suggestion) return interaction.editReply('Suggestion not found in the database.');
+    if (!suggestion) return interaction.editReply('Không tìm thấy đề xuất trong cơ sở dữ liệu.');
 
     let hasPermission = false;
     for (const roleId of config.SuggestionSettings.AllowedRoles) {
@@ -1638,10 +1751,10 @@ if (interaction.isMessageContextMenuCommand() && interaction.commandName.startsW
 // Deny suggestion
 if (interaction.isMessageContextMenuCommand() && interaction.commandName.startsWith('Deny')) {
     if (config.SuggestionSettings.EnableAcceptDenySystem === false) return;
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
     
     const suggestion = await suggestionModel.findOne({ msgID: interaction.targetId });
-    if (!suggestion) return interaction.editReply('Suggestion not found in the database.');
+    if (!suggestion) return interaction.editReply('Không tìm thấy đề xuất trong cơ sở dữ liệu.');
 
     let hasPermission = false;
     for (const roleId of config.SuggestionSettings.AllowedRoles) {
@@ -1819,7 +1932,7 @@ if (interaction.customId === 'ratingSelect') {
   }
 
 if (interaction.type === InteractionType.ModalSubmit && config.TicketReviewSettings.AskWhyModal && !interaction.customId.startsWith('questionModal') && interaction.customId !== "closeReason" && interaction.customId === 'modal-whyRating') {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
     const reviewDB = await reviewsModel.findOne({ reviewDMUserMsgID: interaction.message.id });
     const statsDB = await guildModel.findOne({ guildID: config.GuildID });
@@ -1997,7 +2110,7 @@ if (interaction.customId === 'deleteTicket') {
 }
 
 if (interaction.customId === 'cancelClosure') {
-  await interaction.deferReply();
+  await interaction.deferReply().catch(() => {});
   
   const ticketDB = await ticketModel.findOne({
     closeNotificationTime: { $exists: true, $ne: null },
@@ -2005,7 +2118,7 @@ if (interaction.customId === 'cancelClosure') {
   });
   
   if (!ticketDB) return interaction.editReply({ 
-    content: "No active closure found for this ticket." 
+    content: "Kh�ng t�m th?y y�u c?u d�ng ticket dang ho?t d?ng." 
   });
   
   await ticketModel.findOneAndUpdate(
@@ -2037,7 +2150,7 @@ if (interaction.customId === 'cancelClosure') {
 // Handle AI AutoResponse button interactions
 if (interaction.isButton() && interaction.customId.startsWith('ai_')) {
   if (interaction.customId.includes('ai_helpful_')) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
     
     const messageId = interaction.customId.replace('ai_helpful_', '');
     const type = 'helpful';
@@ -2046,13 +2159,13 @@ if (interaction.isButton() && interaction.customId.startsWith('ai_')) {
     
     if (!aiResponse) {
       return interaction.editReply({ 
-        content: "This AI response has expired or could not be found."
+        content: "Ph?n h?i AI d� h?t h?n ho?c kh�ng t�m th?y."
       });
     }
 
     if (config.AIAutoResponse.ButtonSettings.RestrictToOriginalUser && interaction.user.id !== aiResponse.userId) {
       return interaction.editReply({
-        content: "Only the user who triggered this AI response can provide feedback."
+        content: "Ch? ngu?i d�ng d� k�ch ho?t ph?n h?i AI m?i c� th? d�nh gi�."
       });
     }
 
@@ -2067,7 +2180,7 @@ if (interaction.isButton() && interaction.customId.startsWith('ai_')) {
     } catch (error) {}
 
     await interaction.editReply({ 
-      content: "Thank you for the feedback! I'm glad I could help you. 😊"
+      content: "Cảm ơn phản hồi của bạn! Rất vui được giúp đỡ. 😊"
     });
 
     if (config.AIAutoResponse.Statistics.LogsChannelID && config.AIAutoResponse.Statistics.LogsChannelID !== "CHANNEL_ID") {
@@ -2099,7 +2212,7 @@ if (interaction.isButton() && interaction.customId.startsWith('ai_')) {
     }
     
   } else if (interaction.customId.includes('ai_not_helpful_')) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
     
     const messageId = interaction.customId.replace('ai_not_helpful_', '');
     const type = 'not_helpful';
@@ -2108,13 +2221,13 @@ if (interaction.isButton() && interaction.customId.startsWith('ai_')) {
     
     if (!aiResponse) {
       return interaction.editReply({ 
-        content: "This AI response has expired or could not be found."
+        content: "Ph?n h?i AI d� h?t h?n ho?c kh�ng t�m th?y."
       });
     }
 
     if (config.AIAutoResponse.ButtonSettings.RestrictToOriginalUser && interaction.user.id !== aiResponse.userId) {
       return interaction.editReply({
-        content: "Only the user who triggered this AI response can provide feedback."
+        content: "Ch? ngu?i d�ng d� k�ch ho?t ph?n h?i AI m?i c� th? d�nh gi�."
       });
     }
 

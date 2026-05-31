@@ -1,10 +1,9 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+﻿const { SlashCommandBuilder } = require('@discordjs/builders');
 const { EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
-const yaml = require("js-yaml");
 const AIAutoResponseModel = require('../../models/aiAutoResponseModel');
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const utils = require("../../utils.js");
 
 module.exports = {
@@ -63,7 +62,7 @@ module.exports = {
         } catch (error) {
             console.error('AI Analytics Error:', error);
             await interaction.editReply({ 
-                content: "An error occurred while fetching analytics data.",
+                content: "Đã xảy ra lỗi khi lấy dữ liệu thống kê.",
                 flags: MessageFlags.Ephemeral 
             });
         }
@@ -211,7 +210,7 @@ async function handleResponses(interaction, config) {
     collector.on('collect', async (buttonInteraction) => {
         if (buttonInteraction.user.id !== interaction.user.id) {
             return buttonInteraction.reply({
-                content: 'You cannot interact with this button.',
+                content: 'Bạn không thể tương tác với nút này.',
                 ephemeral: true
             });
         }

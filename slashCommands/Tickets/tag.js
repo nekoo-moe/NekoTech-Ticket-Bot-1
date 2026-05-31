@@ -1,9 +1,7 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+﻿const { SlashCommandBuilder } = require('@discordjs/builders');
 const Discord = require('discord.js');
-const fs = require('fs');
-const yaml = require('js-yaml');
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const Tickets = require("../../db/tickets");
 const utils = require("../../utils.js");
 
@@ -28,7 +26,7 @@ module.exports = {
     async execute(interaction, client) {
         if (!config.Tags?.Enabled) {
             return interaction.reply({
-                content: 'The tag system is currently disabled.',
+                content: 'Hệ thống tag hiện đang bị tắt.',
                 flags: Discord.MessageFlags.Ephemeral
             });
         }
@@ -61,7 +59,7 @@ module.exports = {
 
         if (!tag) {
             return interaction.reply({
-                content: 'This tag does not exist.',
+                content: 'Tag này không tồn tại.',
                 flags: Discord.MessageFlags.Ephemeral
             });
         }
@@ -126,7 +124,7 @@ module.exports = {
         } catch (error) {
             console.error('Error sending tag:', error);
             await interaction.editReply({
-                content: 'There was an error sending this tag. Please contact an administrator.',
+                content: 'Đã xảy ra lỗi khi gửi tag. Vui lòng liên hệ quản trị viên.',
                 flags: Discord.MessageFlags.Ephemeral
             });
         }

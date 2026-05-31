@@ -4,96 +4,96 @@
 # ===========================================================================
 
 # ===========================================================================
-# GENERAL COMMANDS
+# LỆNH CHUNG
 # ===========================================================================
 
 General:
-  Help: # Help command
+  Help: # Lệnh help
     Enabled: true
-    Description: "Displays a list of all commands"
-  Ping: # Ping command
+    Description: "Hiển thị danh sách tất cả các lệnh"
+  Ping: # Lệnh ping
     Enabled: true
-    Description: "Check the bot's ping"
-  Stats: # Stats command
+    Description: "Kiểm tra độ trễ của bot"
+  Stats: # Lệnh stats
     Enabled: true
-    Description: "Guild Statistics"
-  Suggest: # Suggest command
+    Description: "Thống kê server"
+  Suggest: # Lệnh suggest
     Enabled: true
-    Description: "Submit a suggestion"
-  StaffStats: # Staffstats command
+    Description: "Gửi một đề xuất"
+  StaffStats: # Lệnh staffstats
     Enabled: true
-    Description: "View support staff statistics and performance metrics"
+    Description: "Xem thống kê và hiệu suất của nhân viên hỗ trợ"
 
 # ===========================================================================
-# TICKET COMMANDS
+# LỆNH TICKET
 # ===========================================================================
 
 Ticket:
-  Add: # Add command
+  Add: # Lệnh add
     Enabled: true
-    Description: "Add a user to the ticket"
-    AllowEveryoneToUse: true # If set to false, only users with support roles can use this command
-  Remove: # Remove command
+    Description: "Thêm người dùng vào ticket"
+    AllowEveryoneToUse: true # Nếu false, chỉ nhân viên hỗ trợ mới dùng được
+  Remove: # Lệnh remove
     Enabled: true
-    Description: "Remove a user from the ticket"
-    AllowEveryoneToUse: true # If set to false, only users with support roles can use this command
-  Close: # Close command
+    Description: "Xóa người dùng khỏi ticket"
+    AllowEveryoneToUse: true # Nếu false, chỉ nhân viên hỗ trợ mới dùng được
+  Close: # Lệnh close
     Enabled: true
-    Description: "Close a ticket"
-  Delete: # Delete command
+    Description: "Đóng ticket"
+  Delete: # Lệnh delete
     Enabled: true
-    Description: "Force and instantly delete a ticket"
-  Panel: # Panel command
+    Description: "Xóa ticket ngay lập tức"
+  Panel: # Lệnh panel
     Enabled: true
-    Description: "Send the ticket panel"
-  Pin: # Pin command
+    Description: "Gửi panel tạo ticket"
+  Pin: # Lệnh pin
     Enabled: true
-    Description: "Pin a ticket"
-  Rename: # Rename command
+    Description: "Ghim ticket"
+  Rename: # Lệnh rename
     Enabled: true
-    Description: "Rename a ticket"
-  Alert: # Alert command
+    Description: "Đổi tên ticket"
+  Alert: # Lệnh alert
     Enabled: true
-    Description: "Ping the creator with a message saying the ticket will be closed if no response has been received."
-  Priority: # Priority command
+    Description: "Ping người tạo ticket với thông báo ticket sẽ bị đóng nếu không có phản hồi"
+  Priority: # Lệnh priority
     Enabled: true
-    Description: "Manage ticket priority"
-  Tag: # Tag command
+    Description: "Quản lý độ ưu tiên của ticket"
+  Tag: # Lệnh tag
     Enabled: true
-    Description: "Send a predefined support tag"
-  ChangeCategory: # Changecategory command
+    Description: "Gửi tag hỗ trợ được định sẵn"
+  ChangeCategory: # Lệnh changecategory
     Enabled: true
-    Description: "Change the category of an open ticket"
-  Transcript: # Transcript command
+    Description: "Chuyển ticket sang danh mục khác"
+  Transcript: # Lệnh transcript
     Enabled: true
-    Description: "Generate a transcript of the current ticket"
+    Description: "Tạo transcript của ticket hiện tại"
 
 # ===========================================================================
-# UTILITY COMMANDS
+# LỆNH TIỆN ÍCH
 # ===========================================================================
 
 Utility:
-  Blacklist: # Blacklist command
+  Blacklist: # Lệnh blacklist
     Enabled: true
-    Description: "Manage user blacklist"
-  Calculate: # Calculate command
+    Description: "Quản lý danh sách chặn người dùng"
+  Calculate: # Lệnh calculate
     Enabled: true
-    Description: "Math Calculator"
-  Crypto: # Crypto command — đã thay bằng VietQR
+    Description: "Máy tính toán học"
+  Crypto: # Lệnh crypto — đã thay bằng VietQR
     Enabled: false
     Description: "Gửi thanh toán VietQR"
-  Invoice: # Invoice command — đã thay bằng VietQR
-    Enabled: false
-    Description: "Gửi hóa đơn thanh toán"
-  AIAnalytics: # ai-analytics command
+  Invoice: # Lệnh invoice — VietQR
     Enabled: true
-    Description: "View AI AutoResponse analytics and statistics"
+    Description: "Gửi hóa đơn thanh toán"
+  AIAnalytics: # Lệnh ai-analytics
+    Enabled: true
+    Description: "Xem thống kê AI AutoResponse"
 
 # ===========================================================================
-# ADMIN COMMANDS
+# LỆNH QUẢN TRỊ
 # ===========================================================================
 
 Admin:
-  Setup: # Setup command
+  Setup: # Lệnh setup
     Enabled: true
-    Description: "Cấu hình bot (category, ticket settings, v.v.)"
+    Description: "Cấu hình bot (danh mục, cài đặt ticket, v.v.)"

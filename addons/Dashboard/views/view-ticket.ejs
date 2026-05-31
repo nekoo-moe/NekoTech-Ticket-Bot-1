@@ -241,13 +241,18 @@
     </button>
 
     <!-- Questions -->
-    <% if (ticket.questions && ticket.questions.length > 0) { %>
+    <% 
+      const _questions = Array.isArray(ticket.questions) 
+        ? ticket.questions 
+        : (typeof ticket.questions === 'string' ? (() => { try { return JSON.parse(ticket.questions); } catch(e) { return []; } })() : []);
+    %>
+    <% if (_questions && _questions.length > 0) { %>
     <div class="card">
       <div class="card-header">
         <div class="card-icon"><i class="fas fa-question-circle"></i></div>
         <h3 class="card-title">Câu hỏi</h3>
       </div>
-      <% ticket.questions.forEach(q => { %>
+      <% _questions.forEach(q => { %>
       <div style="margin-bottom:var(--sp-3);padding-bottom:var(--sp-3);border-bottom:1px solid var(--border);">
         <div style="font-size:0.75rem;color:var(--ink-3);margin-bottom:4px;"><%= q.question %></div>
         <div style="font-size:0.875rem;color:var(--ink-1);font-weight:500;"><%= q.response || 'Chưa trả lời' %></div>

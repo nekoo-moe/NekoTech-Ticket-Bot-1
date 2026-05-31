@@ -2,10 +2,8 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const Discord = require('discord.js');
-const fs = require('fs');
-const yaml = require('js-yaml');
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const Blacklist = require('../../db/blacklist');
 
 function createBlacklistedUsersEmbed(blacklistedUsers, currentPage, totalPages) {

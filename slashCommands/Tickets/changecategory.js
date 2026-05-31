@@ -1,9 +1,7 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+﻿const { SlashCommandBuilder } = require('@discordjs/builders');
 const Discord = require('discord.js');
-const fs = require('fs');
-const yaml = require('js-yaml');
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const Tickets = require("../../db/tickets");
 const utils = require("../../utils.js");
 
@@ -41,7 +39,7 @@ module.exports = {
         }
         
         if (ticketDB.button === newCategoryId) {
-            return interaction.editReply({ content: "This ticket is already in the selected category.", flags: Discord.MessageFlags.Ephemeral });
+            return interaction.editReply({ content: "Ticket này đã ở trong danh mục được chọn rồi.", flags: Discord.MessageFlags.Ephemeral });
         }
 
         try {

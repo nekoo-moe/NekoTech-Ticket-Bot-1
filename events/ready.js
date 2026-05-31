@@ -6,9 +6,8 @@
 
 'use strict';
 
-const fs      = require('fs');
-const yaml    = require('js-yaml');
-const config  = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
+const config = require('../config');
+const fs     = require('fs');
 const color   = require('ansi-colors');
 const Discord = require('discord.js');
 const { Collection } = Discord;

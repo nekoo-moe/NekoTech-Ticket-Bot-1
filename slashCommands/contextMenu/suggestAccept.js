@@ -1,9 +1,7 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { Discord, ActionRowBuilder, ButtonBuilder, EmbedBuilder, MessageSelectMenu, Message, ContextMenuCommandBuilder, ApplicationCommandType, SnowflakeUtil } = require("discord.js");
-const fs = require('fs');
-const yaml = require("js-yaml")
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
+const config = require('../../config')
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 
 module.exports = {
     enabled: config.SuggestionSettings?.Enabled ?? false,

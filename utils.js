@@ -1,7 +1,6 @@
 const { Collection, Client, Discord, Intents, AttachmentBuilder, ActionRowBuilder, EmbedBuilder, ButtonBuilder } = require('discord.js');
 const fs = require('fs');
-const yaml = require("js-yaml")
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
+const config = require('./config')
 const client = require("./index.js")
 const color = require('ansi-colors');
 
@@ -225,6 +224,48 @@ exports.saveTranscript = async function(interaction) {
   } catch (err) {
     console.error('[utils] saveTranscript error:', err);
     return { attachment: null, timestamp: Date.now() };
+  }
+};
+
+// ─── checkIfUserHasSupportRoles ───────────────────────────────────────────────
+// Kiểm tra xem user có role support không.
+// Nhận interaction (slash/button) hoặc message (prefix), một trong hai có thể null.
+exports.checkIfUserHasSupportRoles = async function(interaction, message) {
+  try {
+    const Categories = require('./db/categories');
+
+    // Lấy member và guild từ interaction hoặc message
+    let member, guild;
+    if (interaction) {
+      member = interaction.member;
+      guild  = interaction.guild;
+    } else if (message) {
+      member = message.member;
+      guild  = message.guild;
+    }
+
+    if (!member || !guild) return false;
+
+    // Nếu user có quyền ManageGuild thì luôn coi là support
+    if (member.permissions && member.permissions.has('ManageGuild')) return true;
+
+    // Thu thập tất cả supportRoles từ mọi category
+    const cats = Categories.findAll();
+    const allSupportRoleIDs = new Set();
+    for (const cat of cats) {
+      if (Array.isArray(cat.supportRoles)) {
+        for (const roleID of cat.supportRoles) {
+          if (roleID) allSupportRoleIDs.add(roleID);
+        }
+      }
+    }
+
+    // Kiểm tra xem member có bất kỳ role nào trong danh sách không
+    if (allSupportRoleIDs.size === 0) return false;
+    return member.roles.cache.some(role => allSupportRoleIDs.has(role.id));
+  } catch (err) {
+    console.error('[utils] checkIfUserHasSupportRoles error:', err);
+    return false;
   }
 };
 

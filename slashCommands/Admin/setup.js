@@ -9,9 +9,7 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const {
   EmbedBuilder, PermissionFlagsBits, MessageFlags, ChannelType,
 } = require('discord.js');
-const fs   = require('fs');
-const yaml = require('js-yaml');
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
+const config = require('../../config');
 const { getConfig, setConfig } = require('../../db/config');
 const Categories = require('../../db/categories');
 
@@ -55,8 +53,11 @@ data.addSubcommandGroup(g => g.setName('ticket').setDescription('Cài đặt h�
     .addBooleanOption(o => o.setName('enabled').setDescription('Bật/tắt').setRequired(true)))
   .addSubcommand(s => s.setName('embedcolor').setDescription('Màu embed mặc định (hex)')
     .addStringOption(o => o.setName('color').setDescription('Ví dụ: #5e99ff').setRequired(true)))
-  .addSubcommand(s => s.setName('staffroles').setDescription('Role staff (ID cách nhau bằng dấu phẩy)')
-    .addStringOption(o => o.setName('roles').setDescription('Role IDs').setRequired(true)))
+  .addSubcommand(s => s.setName('staffroles').setDescription('Xem danh sách staff roles hiện tại'))
+  .addSubcommand(s => s.setName('staffroles-add').setDescription('Thêm role vào danh sách staff')
+    .addRoleOption(o => o.setName('role').setDescription('Role cần thêm').setRequired(true)))
+  .addSubcommand(s => s.setName('staffroles-remove').setDescription('Xóa role khỏi danh sách staff')
+    .addRoleOption(o => o.setName('role').setDescription('Role cần xóa').setRequired(true)))
   .addSubcommand(s => s.setName('info').setDescription('Xem cấu hình ticket hiện tại'))
 );
 
@@ -315,11 +316,27 @@ async function handleTicket(interaction, sub) {
       return interaction.editReply({ embeds:[ok(`Màu embed → \`${color}\``)] });
     }
     case 'staffroles': {
-      const raw = interaction.options.getString('roles');
-      const { ids, bad } = parseRoles(raw, interaction.guild);
-      if (bad.length) return interaction.editReply({ embeds:[err(`Không tìm thấy role: ${bad.join(', ')}`)] });
-      setConfig('staffRoles', ids);
-      return interaction.editReply({ embeds:[ok(`Staff roles → ${ids.map(r=>`<@&${r}>`).join(', ')}`)] });
+      const current = getConfig('staffRoles', []);
+      if (!current.length) return interaction.editReply({ embeds:[info('👥 Staff Roles', '❌ Chưa có staff role nào.\nDùng `/setup ticket staffroles-add @role` để thêm.')] });
+      const e = info('👥 Staff Roles', current.map((r, i) => `${i+1}. <@&${r}> \`${r}\``).join('\n'));
+      return interaction.editReply({ embeds:[e] });
+    }
+    case 'staffroles-add': {
+      const role = interaction.options.getRole('role');
+      const current = getConfig('staffRoles', []);
+      if (current.includes(role.id))
+        return interaction.editReply({ embeds:[err(`<@&${role.id}> đã có trong danh sách staff rồi!`)] });
+      setConfig('staffRoles', [...current, role.id]);
+      return interaction.editReply({ embeds:[ok(`Đã thêm <@&${role.id}> vào staff roles.\n**Hiện tại:** ${[...current, role.id].map(r=>`<@&${r}>`).join(', ')}`)] });
+    }
+    case 'staffroles-remove': {
+      const role = interaction.options.getRole('role');
+      const current = getConfig('staffRoles', []);
+      if (!current.includes(role.id))
+        return interaction.editReply({ embeds:[err(`<@&${role.id}> không có trong danh sách staff!`)] });
+      const updated = current.filter(r => r !== role.id);
+      setConfig('staffRoles', updated);
+      return interaction.editReply({ embeds:[ok(`Đã xóa <@&${role.id}> khỏi staff roles.\n**Còn lại:** ${updated.length ? updated.map(r=>`<@&${r}>`).join(', ') : '_(trống)_'}`)] });
     }
     case 'info': return handleTopInfo(interaction);
   }

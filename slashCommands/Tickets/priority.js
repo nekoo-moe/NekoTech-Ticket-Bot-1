@@ -1,9 +1,7 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+﻿const { SlashCommandBuilder } = require('@discordjs/builders');
 const Discord = require('discord.js');
-const fs = require('fs');
-const yaml = require('js-yaml');
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const Tickets = require("../../db/tickets");
 const utils = require("../../utils.js");
 
@@ -69,7 +67,7 @@ module.exports = {
         if (interaction.options.getSubcommand() === 'set') {
             const level = interaction.options.getString('level');
 
-            if (ticketDB.priority) return interaction.editReply({ content: 'This ticket already has a priority set.', flags: Discord.MessageFlags.Ephemeral });
+            if (ticketDB.priority) return interaction.editReply({ content: 'Ticket này đã được đặt độ ưu tiên rồi.', flags: Discord.MessageFlags.Ephemeral });
 
         const cooldownTimeLeft = ticketDB.priorityCooldown - Date.now();
         if (cooldownTimeLeft > 0) {
@@ -115,7 +113,7 @@ module.exports = {
             interaction.channel.send({ embeds: [successEmbed], content: `${supp.join(" ")}` })
             interaction.editReply({ content: `You successfully set the priority for this ticket!` })
         } else if (interaction.options.getSubcommand() === 'clear') {
-            if (!ticketDB.priority) return interaction.editReply({ content: 'This ticket has no priority!', flags: Discord.MessageFlags.Ephemeral });
+            if (!ticketDB.priority) return interaction.editReply({ content: 'Ticket này chưa có độ ưu tiên!', flags: Discord.MessageFlags.Ephemeral });
 
         const cooldownTimeLeft = ticketDB.priorityCooldown - Date.now();
         if (cooldownTimeLeft > 0) {

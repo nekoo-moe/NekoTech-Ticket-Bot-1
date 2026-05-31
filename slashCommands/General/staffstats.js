@@ -1,9 +1,7 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+﻿const { SlashCommandBuilder } = require('@discordjs/builders');
 const Discord = require("discord.js");
-const fs = require('fs');
-const yaml = require("js-yaml");
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const { 
     incrementStat, 
     getStaffStats, 
@@ -42,9 +40,9 @@ module.exports = {
                         .setDescription('Select timeframe')
                         .setRequired(false)
                         .addChoices(
-                            { name: 'All Time', value: 'lifetime' },
+                            { name: 'Toàn thời gian', value: 'lifetime' },
                             { name: 'This Week', value: 'weekly' },
-                            { name: 'This Month', value: 'monthly' },
+                            { name: 'Tháng này', value: 'monthly' },
                             { name: 'This Year', value: 'yearly' }
                         )
                 )
@@ -55,9 +53,9 @@ module.exports = {
                         .setRequired(false)
                         .addChoices(
                             { name: 'Claims', value: 'claims' },
-                            { name: 'Messages', value: 'messages' },
+                            { name: 'Tin nhắn', value: 'messages' },
                             { name: 'Closed Tickets', value: 'closedTickets' },
-                            { name: 'Avg. Response Time', value: 'responseTime' },
+                            { name: 'Thời gian phản hồi TB', value: 'responseTime' },
                             { name: 'Avg. Rating', value: 'rating' }
                         )
                 )
@@ -73,9 +71,9 @@ module.exports = {
                         .setRequired(true)
                         .addChoices(
                             { name: 'Weekly', value: 'weekly' },
-                            { name: 'Monthly', value: 'monthly' },
+                            { name: 'Theo tháng', value: 'monthly' },
                             { name: 'Yearly', value: 'yearly' },
-                            { name: 'All Data', value: 'lifetime' }
+                            { name: 'Tất cả dữ liệu', value: 'lifetime' }
                         )
                 )
                 .addUserOption(option =>

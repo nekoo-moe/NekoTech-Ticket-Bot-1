@@ -1,7 +1,5 @@
 const Discord = require("discord.js");
-const fs = require('fs');
-const yaml = require("js-yaml")
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
+const config = require('../config')
 
 module.exports = async (client, guild) => {
         if(!config.GuildID.includes(guild.id)) {

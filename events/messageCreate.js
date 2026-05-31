@@ -1,7 +1,6 @@
 const { Discord, EmbedBuilder, ButtonBuilder, ActionRowBuilder } = require("discord.js");
 const fs = require('fs');
-const yaml = require("js-yaml");
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
+const config = require('../config');
 const color  = require('ansi-colors');
 const utils  = require("../utils.js");
 const { t }  = require("../lang/index");

@@ -1,9 +1,7 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { ActionRowBuilder, ButtonBuilder, EmbedBuilder, SnowflakeUtil, ModalBuilder, MessageFlags, TextInputBuilder, TextInputStyle } = require("discord.js");
-const fs = require('fs');
-const yaml = require("js-yaml");
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const Guild      = require("../../db/guild");
 const Suggestions = require("../../db/suggestions");
 const utils = require("../../utils.js");
@@ -15,7 +13,7 @@ module.exports = {
         .setDescription(`Submit a suggestion`),
     async execute(interaction, client) {
         if(config.SuggestionSettings.Enabled === false) {
-            return interaction.reply({ content: "This command has been disabled in the config!", flags: MessageFlags.Ephemeral });
+            return interaction.reply({ content: "Lệnh này đang bị tắt!", flags: MessageFlags.Ephemeral });
         }
         
         const modal = new ModalBuilder()

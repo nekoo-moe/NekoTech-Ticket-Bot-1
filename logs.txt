@@ -331,3 +331,159 @@ TypeError: Cannot read properties of undefined (reading 'nigga')
     at WebSocketManager.emit (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
     at WebSocketShard.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\ws\dist\index.js:1190:51)
     at WebSocketShard.emit (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+
+[5/31/2026, 10:39:44 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 10:39:47 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 10:47:01 AM] [INTERACTION] categorySelect
+
+[5/31/2026, 10:47:01 AM] [TICKET CREATION] Category: nigga, User: heiznerd_2008
+
+[5/31/2026, 10:47:11 AM] [ERROR] [v26.1.1-STABLE]
+TypeError: utils.checkIfUserHasSupportRoles is not a function
+    at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\messageCreate.js:22:35)
+    at Client.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\index.js:151:39)
+    at Client.emit (node:events:509:28)
+    at MessageCreateAction.handle (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\actions\MessageCreate.js:33:14)
+    at module.exports [as MESSAGE_CREATE] (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\handlers\MESSAGE_CREATE.js:4:32)
+    at WebSocketManager.handlePacket (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\ws\dist\index.js:1190:51)
+    at WebSocketShard.emit (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+
+[5/31/2026, 10:47:15 AM] [INTERACTION] ticketclaim
+
+[5/31/2026, 10:47:15 AM] [TICKET CLAIM] User: heiznerd_2008
+
+[5/31/2026, 10:47:15 AM] [ERROR] [v26.1.1-STABLE]
+TypeError: utils.checkIfUserHasSupportRoles is not a function
+    at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:1401:35)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+[5/31/2026, 10:48:34 AM] [INTERACTION] closeTicket
+
+[5/31/2026, 11:18:56 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 11:19:00 AM] [ERROR] [v26.1.1-STABLE]
+ReferenceError: fs is not defined
+    at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\ready.js:537:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+[5/31/2026, 11:21:33 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 11:21:36 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 11:33:57 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 11:34:01 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 11:34:48 AM] [INTERACTION] closeTicket
+
+[5/31/2026, 11:34:48 AM] [unhandledRejection] [v26.1.1-STABLE]
+TypeError: Cannot read properties of null (reading 'id')
+    at CloseTicket (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\ticketClose.js:120:80)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+[5/31/2026, 11:34:53 AM] [INTERACTION] ticketclaim
+
+[5/31/2026, 11:34:53 AM] [TICKET CLAIM] User: heiznerd_2008
+
+[5/31/2026, 11:34:54 AM] [unhandledRejection] [v26.1.1-STABLE]
+TypeError: Cannot read properties of undefined (reading 'SendMessages')
+    at C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:1176:61
+    at Array.map (<anonymous>)
+    at editPermissionOverwrites (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:1172:40)
+    at C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:1186:15
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+[5/31/2026, 11:35:08 AM] [SLASH COMMAND] Command: rename, User: heiznerd_2008
+
+[5/31/2026, 11:35:24 AM] [SLASH COMMAND] Command: add, User: heiznerd_2008
+
+[5/31/2026, 11:35:36 AM] [SLASH COMMAND] Command: alert, User: heiznerd_2008
+
+[5/31/2026, 11:35:50 AM] [SLASH COMMAND] Command: blacklist, User: heiznerd_2008
+
+[5/31/2026, 11:36:00 AM] [SLASH COMMAND] Command: blacklist, User: heiznerd_2008
+
+[5/31/2026, 11:36:09 AM] [SLASH COMMAND] Command: blacklist, User: heiznerd_2008
+
+[5/31/2026, 11:36:21 AM] [SLASH COMMAND] Command: calculate, User: heiznerd_2008
+
+[5/31/2026, 11:36:32 AM] [SLASH COMMAND] Command: changecategory, User: heiznerd_2008
+
+[5/31/2026, 11:36:46 AM] [SLASH COMMAND] Command: delete, User: heiznerd_2008
+
+[5/31/2026, 11:37:24 AM] [SLASH COMMAND] Command: pin, User: heiznerd_2008
+
+[5/31/2026, 11:37:52 AM] [SLASH COMMAND] Command: staffstats, User: heiznerd_2008
+
+[5/31/2026, 11:44:47 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 11:44:49 AM] [uncaughtException] [v26.1.1-STABLE]
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:2008:16)
+    at listenInCluster (node:net:2065:12)
+    at Server.listen (node:net:2170:7)
+    at app.listen (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\express\lib\application.js:635:24)
+    at module.exports.register (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\addons\Dashboard\dashboard.js:1318:9)
+    at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\ready.js:284:21)
+
+[5/31/2026, 11:44:50 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 11:47:00 AM] [STARTING] Attempting to start the bot..
+NodeJS Version: v24.16.0
+Bot Version: 26.1.1-STABLE
+
+[5/31/2026, 11:47:04 AM] [READY] Bot đã sẵn sàng!
+
+[5/31/2026, 11:49:38 AM] [SLASH COMMAND] Command: invoice, User: heiznerd_2008
+
+[5/31/2026, 11:49:42 AM] [INTERACTION] categorySelect
+
+[5/31/2026, 11:49:42 AM] [INTERACTION] categorySelect
+
+[5/31/2026, 11:49:42 AM] [ERROR] [v26.1.1-STABLE]
+DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\rest\dist\index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async BurstHandler.runRequest (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\rest\dist\index.js:866:23)
+    at async _REST.request (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\rest\dist\index.js:1307:22)
+    at async StringSelectMenuInteraction.deferReply (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:122:22)
+    at async module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:219:9)
+
+[5/31/2026, 11:49:42 AM] [TICKET CREATION] Category: nigga, User: heiznerd_2008
+
+[5/31/2026, 11:49:59 AM] [SLASH COMMAND] Command: invoice, User: heiznerd_2008
+
+[5/31/2026, 11:50:28 AM] [INTERACTION] ticketclaim
+
+[5/31/2026, 11:50:28 AM] [INTERACTION] ticketclaim
+
+[5/31/2026, 11:50:29 AM] [ERROR] [v26.1.1-STABLE]
+DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\rest\dist\index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async BurstHandler.runRequest (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\rest\dist\index.js:866:23)
+    at async _REST.request (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\@discordjs\rest\dist\index.js:1307:22)
+    at async ButtonInteraction.deferReply (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:122:22)
+    at async module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:1096:5)
+
+[5/31/2026, 11:50:29 AM] [TICKET CLAIM] User: heiznerd_2008
+
+[5/31/2026, 11:50:29 AM] [ERROR] [v26.1.1-STABLE]
+TypeError: Cannot read properties of undefined (reading 'emit')
+    at module.exports (C:\Users\sangt\OneDrive\Documents\ola\Heiznerd-TK2\events\interactionCreate.js:2285:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)

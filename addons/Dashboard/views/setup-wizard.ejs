@@ -317,9 +317,25 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="staffRoles">Staff roles (ID cách nhau bằng dấu phẩy)</label>
-          <input type="text" id="staffRoles" class="form-input" placeholder="123456789, 987654321"
-                 value="<%= (cfg['staffRoles'] || []).join(', ') %>">
+          <label class="form-label">Staff roles</label>
+          <div id="staffRolesContainer" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);min-height:42px;align-items:center;">
+            <% (cfg['staffRoles'] || []).forEach(roleId => { %>
+            <span class="staff-role-tag" data-id="<%= roleId %>" style="display:inline-flex;align-items:center;gap:4px;background:var(--teal-glow);color:var(--teal);border:1px solid var(--teal-border);border-radius:4px;padding:2px 8px;font-size:0.8rem;font-weight:500;">
+              <i class="fas fa-shield-alt" style="font-size:0.7rem;"></i>
+              <span class="role-name"><%= roleId %></span>
+              <button type="button" onclick="removeStaffRole('<%= roleId %>')" style="background:none;border:none;cursor:pointer;color:var(--teal);padding:0;margin-left:2px;font-size:0.75rem;line-height:1;">×</button>
+            </span>
+            <% }); %>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <input type="text" id="staffRoleInput" class="form-input" placeholder="Nhập Role ID rồi nhấn Thêm..."
+                   style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addStaffRole();}">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addStaffRole()" style="white-space:nowrap;">
+              <i class="fas fa-plus"></i> Thêm
+            </button>
+          </div>
+          <input type="hidden" id="staffRoles" value="<%= (cfg['staffRoles'] || []).join(',') %>">
+          <span class="form-hint">Thêm từng Role ID một. Nhấn × để xóa.</span>
         </div>
         <div class="form-group span-2">
           <label class="form-label" for="channelTopic">Chủ đề kênh ticket</label>
@@ -1515,6 +1531,35 @@ async function deletePanel(panelId) {
     if (data.success) { showToast('Đã xóa panel', 'success'); setTimeout(() => location.reload(), 600); }
     else showToast(data.error || 'Lỗi xóa panel', 'error');
   } catch { showToast('Lỗi kết nối', 'error'); }
+}
+
+// ── Staff Roles helpers ───────────────────────────────────
+function updateStaffRolesHidden() {
+  const tags = document.querySelectorAll('#staffRolesContainer .staff-role-tag');
+  const ids = Array.from(tags).map(t => t.dataset.id).filter(Boolean);
+  document.getElementById('staffRoles').value = ids.join(',');
+}
+
+function addStaffRole() {
+  const input = document.getElementById('staffRoleInput');
+  const id = input.value.trim().replace(/\D/g, '');
+  if (!id) return;
+  const existing = document.querySelector(`#staffRolesContainer [data-id="${id}"]`);
+  if (existing) { input.value = ''; return; }
+  const tag = document.createElement('span');
+  tag.className = 'staff-role-tag';
+  tag.dataset.id = id;
+  tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:var(--teal-glow);color:var(--teal);border:1px solid var(--teal-border);border-radius:4px;padding:2px 8px;font-size:0.8rem;font-weight:500;';
+  tag.innerHTML = `<i class="fas fa-shield-alt" style="font-size:0.7rem;"></i><span class="role-name">${id}</span><button type="button" onclick="removeStaffRole('${id}')" style="background:none;border:none;cursor:pointer;color:var(--teal);padding:0;margin-left:2px;font-size:0.75rem;line-height:1;">×</button>`;
+  document.getElementById('staffRolesContainer').appendChild(tag);
+  updateStaffRolesHidden();
+  input.value = '';
+}
+
+function removeStaffRole(id) {
+  const tag = document.querySelector(`#staffRolesContainer [data-id="${id}"]`);
+  if (tag) tag.remove();
+  updateStaffRolesHidden();
 }
 
 // ── Save section ──────────────────────────────────────────

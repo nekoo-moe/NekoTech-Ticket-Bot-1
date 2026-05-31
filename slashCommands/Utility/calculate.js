@@ -1,10 +1,8 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
+﻿const { SlashCommandBuilder } = require('@discordjs/builders');
 const Discord = require("discord.js")
-const fs = require('fs');
-const yaml = require("js-yaml")
 const axios = require("axios");
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'))
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 
 module.exports = {
     enabled: commands.Utility.Calculate.Enabled,
@@ -46,7 +44,7 @@ module.exports = {
             interaction.editReply({ embeds: [embed] });
         } catch (error) {
             console.error('Calculation error:', error);
-            interaction.editReply({ content: 'An error occurred while calculating the result.', flags: Discord.MessageFlags.Ephemeral });
+            interaction.editReply({ content: 'Đã xảy ra lỗi khi tính toán.', flags: Discord.MessageFlags.Ephemeral });
         }
     }
 }

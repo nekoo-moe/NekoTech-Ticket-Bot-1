@@ -1,7 +1,6 @@
 const { Discord, ActionRowBuilder, ButtonBuilder, EmbedBuilder, StringSelectMenuBuilder, Message, MessageAttachment, ModalBuilder, TextInputBuilder } = require("discord.js");
 const fs = require('fs');
-const yaml = require("js-yaml")
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'))
+const config = require('../config')
 const utils   = require("../utils.js");
 const { t }   = require("../lang/index");
 const { getConfig } = require("../db/config");
@@ -118,7 +117,7 @@ module.exports = async (client, interaction) => {
       });
     }
 
-    client.emit('sendUserDM', ticketDB, attachment, closeLogMsgID, logsChannel.id, timestamp, meetsMessageRequirement);
+    client.emit('sendUserDM', ticketDB, attachment, closeLogMsgID, logsChannel?.id || null, timestamp, meetsMessageRequirement);
 
     let dTime = getConfig('ticket.deleteTime', 5) * 1000;
     let deleteTicketCountdown = t('ticket.close.deleting', { time: String(getConfig('ticket.deleteTime', 5)) });

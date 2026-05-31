@@ -7,10 +7,8 @@
 
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { EmbedBuilder, MessageFlags } = require('discord.js');
-const fs   = require('fs');
-const yaml = require('js-yaml');
-const config   = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
+const config = require('../../config');
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 const Tickets  = require('../../db/tickets');
 const { getConfig } = require('../../db/config');
 
@@ -30,7 +28,8 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
+    if (interaction.deferred === false) return; // interaction đã hết hạn
 
     const ticketDB = Tickets.findByChannelID(interaction.channel.id);
     const onlyInTickets = getConfig('vietqr.onlyInTickets', false);

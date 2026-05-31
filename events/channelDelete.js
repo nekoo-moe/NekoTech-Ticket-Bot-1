@@ -1,6 +1,4 @@
-const fs = require('fs');
-const yaml = require("js-yaml");
-const config = yaml.load(fs.readFileSync('./config.yml', 'utf8'));
+const config = require('../config');
 const Guild   = require("../db/guild");
 const Tickets = require("../db/tickets");
 

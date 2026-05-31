@@ -10,7 +10,7 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const { MessageFlags } = require('discord.js');
 const fs   = require('fs');
 const yaml = require('js-yaml');
-const commands = yaml.load(fs.readFileSync('./commands.yml', 'utf8'));
+const commands = require('js-yaml').load(require('fs').readFileSync('./commands.yml', 'utf8'));
 
 module.exports = {
   enabled: false, // Đã xóa — dùng /invoice thay thế
