@@ -31,7 +31,7 @@ module.exports = {
       setConfig('ticket.logsChannelID', logsChannel.id);
       setConfig('ticket.maxTickets',    1);
       setConfig('ticket.deleteTime',    5);
-      setConfig('ticket.selectMenu',    true);
+      setConfig('ticket.selectMenu',    false);
       setConfig('claiming.enabled',     true);
 
       // 2. Create default category if none exists
@@ -52,7 +52,13 @@ module.exports = {
           channelName:         'ticket-{username}',
           logsChannelID:       logsChannel.id,
           requiredRoles:       [],
-          questions:           [],
+          questions:           [{
+            customId:    'q1',
+            question:    'Bạn đang gặp phải vấn đề gì?',
+            style:       'Paragraph',
+            required:    true,
+            placeholder: 'Hãy miêu tả vấn đề của bạn càng chi tiết càng tốt nhé!',
+          }],
           sortOrder:           0,
           enabled:             true,
           dmOnClose:           true,
@@ -61,22 +67,22 @@ module.exports = {
       }
 
       // 3. Send panel to panel channel
-      const { EmbedBuilder: EB, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      const { EmbedBuilder: EB, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
       const { getConfig: gc } = require('../../db/config');
       const embedColor = gc('bot.embedColor', '#59d4b5');
 
       const panelEmbed = new EB()
         .setColor(embedColor)
-        .setTitle('🎫 Hỗ Trợ Ticket')
-        .setDescription('> Nhấn vào menu bên dưới để tạo ticket và được hỗ trợ.');
+        .setTitle('🎫 Trung Tâm Hỗ Trợ')
+        .setDescription('👋 Chào mừng bạn đến với hệ thống hỗ trợ!\n\nChọn loại ticket phù hợp bên dưới để được hỗ trợ nhanh nhất.');
 
-      const menu = new StringSelectMenuBuilder()
-        .setCustomId('categorySelect')
-        .setPlaceholder('Chọn loại ticket...')
-        .setMinValues(1).setMaxValues(1)
-        .addOptions([{ label: categoryName, value: `ticket-${catKey}`, emoji: '🎫' }]);
+      const btn = new ButtonBuilder()
+        .setCustomId(`ticket-${catKey}`)
+        .setLabel(categoryName)
+        .setEmoji('🎫')
+        .setStyle(ButtonStyle.Success);
 
-      const row = new ActionRowBuilder().addComponents(menu);
+      const row = new ActionRowBuilder().addComponents(btn);
       const sentMsg = await panelChannel.send({ embeds: [panelEmbed], components: [row] });
 
       // Save panel record

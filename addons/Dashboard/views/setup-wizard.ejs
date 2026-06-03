@@ -503,6 +503,45 @@ async function resetAllConfig() {
                 </div>
               </div>
 
+              <!-- Questions builder -->
+              <div style="margin-top:var(--sp-4);background:var(--surface-3);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-3);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-3);">
+                  <div style="font-size:0.8rem;font-weight:600;color:var(--ink-2);">📋 Form câu hỏi khi tạo ticket <span style="color:var(--ink-3);font-weight:400;">(tối đa 5)</span></div>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="addQuestion('<%= cat.categoryKey %>')"><i class="fas fa-plus"></i> Thêm câu hỏi</button>
+                </div>
+                <div id="questions-<%= cat.categoryKey %>" style="display:flex;flex-direction:column;gap:var(--sp-2);">
+                  <% (cat.questions||[]).forEach((q,qi) => { %>
+                  <div class="question-row" style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:var(--sp-3);display:grid;grid-template-columns:1fr 1fr auto;gap:var(--sp-2);align-items:start;">
+                    <div class="form-group">
+                      <label class="form-label">Câu hỏi</label>
+                      <input type="text" class="form-input q-label" value="<%= q.question||'' %>" placeholder="Bạn đang gặp vấn đề gì?">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
+                      <div class="form-group">
+                        <label class="form-label">Kiểu nhập</label>
+                        <select class="form-select q-style">
+                          <option value="Short" <%= q.style==='Short'?'selected':'' %>>Ngắn</option>
+                          <option value="Paragraph" <%= q.style==='Paragraph'?'selected':'' %>>Dài</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Bắt buộc</label>
+                        <select class="form-select q-required">
+                          <option value="true" <%= q.required?'selected':'' %>>Có</option>
+                          <option value="false" <%= !q.required?'selected':'' %>>Không</option>
+                        </select>
+                      </div>
+                      <div class="form-group" style="grid-column:span 2;">
+                        <label class="form-label">Placeholder</label>
+                        <input type="text" class="form-input q-placeholder" value="<%= q.placeholder||'' %>" placeholder="Mô tả chi tiết...">
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" style="margin-top:20px;" onclick="this.closest('.question-row').remove()"><i class="fas fa-trash"></i></button>
+                  </div>
+                  <% }); %>
+                </div>
+              </div>
+
               <!-- Live preview inside edit card -->
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-4);">
                 <div>
@@ -661,6 +700,43 @@ async function resetAllConfig() {
                 </label>
               </div>
             </div>
+            <!-- Questions builder -->
+            <div style="background:var(--surface-3);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-3);margin-top:var(--sp-2);">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-3);">
+                <div style="font-size:0.8rem;font-weight:600;color:var(--ink-2);">📋 Form câu hỏi khi tạo ticket <span style="color:var(--ink-3);font-weight:400;">(tối đa 5)</span></div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addQuestion('new')"><i class="fas fa-plus"></i> Thêm câu hỏi</button>
+              </div>
+              <div id="questions-new" style="display:flex;flex-direction:column;gap:var(--sp-2);">
+                <!-- default question pre-filled -->
+                <div class="question-row" style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:var(--sp-3);display:grid;grid-template-columns:1fr 1fr auto;gap:var(--sp-2);align-items:start;">
+                  <div class="form-group">
+                    <label class="form-label">Câu hỏi</label>
+                    <input type="text" class="form-input q-label" value="Bạn đang gặp phải vấn đề gì?" placeholder="Bạn đang gặp vấn đề gì?">
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
+                    <div class="form-group">
+                      <label class="form-label">Kiểu nhập</label>
+                      <select class="form-select q-style">
+                        <option value="Short">Ngắn</option>
+                        <option value="Paragraph" selected>Dài</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Bắt buộc</label>
+                      <select class="form-select q-required">
+                        <option value="true" selected>Có</option>
+                        <option value="false">Không</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="grid-column:span 2;">
+                      <label class="form-label">Placeholder</label>
+                      <input type="text" class="form-input q-placeholder" value="Hãy miêu tả vấn đề của bạn càng chi tiết càng tốt nhé!" placeholder="Mô tả chi tiết...">
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-danger btn-sm" style="margin-top:20px;" onclick="this.closest('.question-row').remove()"><i class="fas fa-trash"></i></button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Right: live preview -->
@@ -779,11 +855,11 @@ async function resetAllConfig() {
             </div>
             <div class="form-group">
               <label class="form-label">Tiêu đề embed panel</label>
-              <input type="text" id="panelEmbedTitle" class="form-input" placeholder="Hỗ Trợ Ticket" oninput="refreshPanelPreview()">
+              <input type="text" id="panelEmbedTitle" class="form-input" placeholder="🎫 Trung Tâm Hỗ Trợ" oninput="refreshPanelPreview()">
             </div>
             <div class="form-group">
               <label class="form-label">Nội dung embed panel</label>
-              <textarea id="panelEmbedDesc" class="form-textarea" rows="3" placeholder="> Chọn loại ticket bên dưới để được hỗ trợ." oninput="refreshPanelPreview()"></textarea>
+              <textarea id="panelEmbedDesc" class="form-textarea" rows="3" placeholder="👋 Chào mừng bạn đến với hệ thống hỗ trợ!&#10;&#10;Chọn loại ticket phù hợp bên dưới để được hỗ trợ nhanh nhất." oninput="refreshPanelPreview()"></textarea>
             </div>
             <div class="form-group">
               <label class="form-label">Màu embed</label>
@@ -801,8 +877,10 @@ async function resetAllConfig() {
               <div style="display:flex;border-radius:4px;overflow:hidden;background:#2b2d31;">
                 <div id="panelPrevBar" style="width:4px;flex-shrink:0;background:<%= cfg['bot.embedColor']||'#59d4b5' %>;"></div>
                 <div style="padding:10px 14px 10px 10px;flex:1;min-width:0;">
-                  <div id="panelPrevTitle" style="font-size:0.875rem;font-weight:600;color:#fff;margin-bottom:4px;">Hỗ Trợ Ticket</div>
-                  <div id="panelPrevDesc" style="font-size:0.8rem;color:#dbdee1;">&gt; Chọn loại ticket bên dưới.</div>
+                  <div id="panelPrevTitle" style="font-size:0.875rem;font-weight:600;color:#fff;margin-bottom:4px;">🎫 Trung Tâm Hỗ Trợ</div>
+                  <div id="panelPrevDesc" style="font-size:0.8rem;color:#dbdee1;white-space:pre-wrap;">👋 Chào mừng bạn đến với hệ thống hỗ trợ!
+
+Chọn loại ticket phù hợp bên dưới để được hỗ trợ nhanh nhất.</div>
                   <div id="panelPrevBtns" style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
                     <span style="font-size:0.75rem;color:#949ba4;font-style:italic;">Chọn danh mục để xem nút...</span>
                   </div>
@@ -1454,6 +1532,35 @@ function updatePreviewColor(hex) {
   document.querySelectorAll('.embed-accent-bar').forEach(b => b.style.background = hex);
 }
 
+// ── Questions builder helper ──────────────────────────────
+function addQuestion(key) {
+  const container = document.getElementById('questions-' + key);
+  if (!container) return;
+  if (container.querySelectorAll('.question-row').length >= 5) { showToast('Tối đa 5 câu hỏi', 'error'); return; }
+  const row = document.createElement('div');
+  row.className = 'question-row';
+  row.style.cssText = 'background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:var(--sp-3);display:grid;grid-template-columns:1fr 1fr auto;gap:var(--sp-2);align-items:start;';
+  row.innerHTML = `
+    <div class="form-group"><label class="form-label">Câu hỏi</label><input type="text" class="form-input q-label" placeholder="Bạn đang gặp vấn đề gì?"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
+      <div class="form-group"><label class="form-label">Kiểu nhập</label><select class="form-select q-style"><option value="Short">Ngắn</option><option value="Paragraph">Dài</option></select></div>
+      <div class="form-group"><label class="form-label">Bắt buộc</label><select class="form-select q-required"><option value="true">Có</option><option value="false">Không</option></select></div>
+      <div class="form-group" style="grid-column:span 2;"><label class="form-label">Placeholder</label><input type="text" class="form-input q-placeholder" placeholder="Mô tả chi tiết..."></div>
+    </div>
+    <button type="button" class="btn btn-danger btn-sm" style="margin-top:20px;" onclick="this.closest('.question-row').remove()"><i class="fas fa-trash"></i></button>`;
+  container.appendChild(row);
+}
+
+function collectQuestions(containerId) {
+  return Array.from(document.querySelectorAll('#' + containerId + ' .question-row')).map((row, i) => ({
+    customId: 'q' + (i + 1),
+    question: row.querySelector('.q-label')?.value?.trim() || '',
+    style:    row.querySelector('.q-style')?.value || 'Short',
+    required: row.querySelector('.q-required')?.value === 'true',
+    placeholder: row.querySelector('.q-placeholder')?.value?.trim() || '',
+  })).filter(q => q.question);
+}
+
 // ── Category card toggle ──────────────────────────────────
 function toggleCatCard(key) {
   const body = document.getElementById('cat-edit-' + key);
@@ -1515,6 +1622,7 @@ async function saveCatCard(key) {
     footer_icon:   g('.ec-footer-icon'),
     dm_enabled:    c('.ec-dm-enabled'),
     dm_message:    g('.ec-dm-msg'),
+    questions:     collectQuestions('questions-' + key),
   };
   try {
     const res  = await fetch('/api/setup/category/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
@@ -1581,6 +1689,7 @@ async function createNewCategory() {
         footer_icon:  document.getElementById('newCatFooterIcon')?.value|| '',
         dm_enabled:   document.getElementById('newCatDmEnabled')?.checked ?? false,
         dm_message:   document.getElementById('newCatDmMsg')?.value      || '',
+        questions:    collectQuestions('questions-new'),
       }),
     });
     const data = await res.json();
@@ -1591,8 +1700,8 @@ async function createNewCategory() {
 
 // ── Panel live preview ────────────────────────────────────
 function refreshPanelPreview() {
-  const title  = document.getElementById('panelEmbedTitle')?.value || 'Hỗ Trợ Ticket';
-  const desc   = document.getElementById('panelEmbedDesc')?.value  || '> Chọn loại ticket bên dưới.';
+  const title  = document.getElementById('panelEmbedTitle')?.value || '🎫 Trung Tâm Hỗ Trợ';
+  const desc   = document.getElementById('panelEmbedDesc')?.value  || '👋 Chào mừng bạn đến với hệ thống hỗ trợ!\n\nChọn loại ticket phù hợp bên dưới để được hỗ trợ nhanh nhất.';
   const color  = document.getElementById('panelEmbedColor')?.value || '#59d4b5';
   const isDropdown = document.getElementById('panelStyleDropdown')?.checked;
   document.getElementById('panelPrevTitle').textContent = title;

@@ -1278,6 +1278,7 @@ app.post('/api/setup/category/update', isLoggedIn, async (req, res) => {
     if (footer_icon !== undefined)   updates.embedFooterIconURL  = footer_icon;
     if (dm_enabled !== undefined)    updates.dmOnClose           = dm_enabled;
     if (dm_message !== undefined)    updates.dmCloseMessage      = dm_message;
+    if (req.body.questions !== undefined) updates.questions      = req.body.questions;
 
     Categories.update(key, updates);
     res.json({ success: true });
