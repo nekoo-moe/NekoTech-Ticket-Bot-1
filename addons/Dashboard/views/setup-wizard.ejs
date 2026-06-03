@@ -512,8 +512,18 @@ async function resetAllConfig() {
                       <div class="ec-prev-bar" id="ec-bar-<%= cat.categoryKey %>" style="width:4px;flex-shrink:0;background:<%= cfg['bot.embedColor']||'#59d4b5' %>;"></div>
                       <div style="padding:10px 14px 10px 10px;flex:1;">
                         <div class="ec-prev-title" id="ec-title-<%= cat.categoryKey %>" style="font-size:0.875rem;font-weight:600;color:#fff;margin-bottom:4px;"><%= cat.embedTitle||cat.categoryName %></div>
-                        <div class="ec-prev-desc" id="ec-desc-<%= cat.categoryKey %>" style="font-size:0.8rem;color:#dbdee1;white-space:pre-wrap;"><%= cat.embedMessage||'' %></div>
-                        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                        <div class="ec-prev-desc" id="ec-desc-<%= cat.categoryKey %>" style="font-size:0.8rem;color:#dbdee1;white-space:pre-wrap;margin-bottom:8px;"><%= cat.embedMessage||'' %></div>
+                        <div style="background:#1e1f22;border-radius:4px;padding:8px 10px;margin-bottom:8px;font-size:0.75rem;color:#dbdee1;">
+                          <div style="font-weight:700;color:#fff;margin-bottom:4px;">`🎫` Thông tin ticket</div>
+                          <div style="color:#b5bac1;line-height:1.6;">
+                            &gt; <strong>ID:</strong> <code>#AB1234</code><br>
+                            &gt; <strong>Danh mục:</strong> <code id="ec-prev-catname-<%= cat.categoryKey %>"><%= cat.categoryName %></code><br>
+                            &gt; <strong>Tạo lúc:</strong> hôm nay lúc ...<br>
+                            &gt; <strong>Người tạo:</strong> @user<br>
+                            &gt; <strong>Ticket thứ:</strong> <code>#47</code>
+                          </div>
+                        </div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
                           <span style="background:#da373c;color:#fff;padding:4px 12px;border-radius:3px;font-size:0.8rem;">🔒 Đóng</span>
                           <span style="background:#4e5058;color:#fff;padding:4px 12px;border-radius:3px;font-size:0.8rem;">👋 Nhận</span>
                         </div>
@@ -664,8 +674,18 @@ async function resetAllConfig() {
                   <div id="newCatPrevBar" style="width:4px;flex-shrink:0;background:<%= cfg['bot.embedColor']||'#59d4b5' %>;"></div>
                   <div style="padding:10px 14px 10px 10px;flex:1;min-width:0;">
                     <div id="newCatPrevTitle" style="font-size:0.875rem;font-weight:600;color:#fff;margin-bottom:4px;">Ticket Hỗ Trợ</div>
-                    <div id="newCatPrevDesc" style="font-size:0.8rem;color:#dbdee1;white-space:pre-wrap;">&gt; Cảm ơn bạn đã liên hệ.</div>
-                    <div style="display:flex;gap:6px;margin-top:8px;">
+                    <div id="newCatPrevDesc" style="font-size:0.8rem;color:#dbdee1;white-space:pre-wrap;margin-bottom:8px;">&gt; Cảm ơn bạn đã liên hệ.</div>
+                    <div style="background:#1e1f22;border-radius:4px;padding:8px 10px;margin-bottom:8px;font-size:0.75rem;color:#dbdee1;">
+                      <div style="font-weight:700;color:#fff;margin-bottom:4px;">`🎫` Thông tin ticket</div>
+                      <div style="color:#b5bac1;line-height:1.6;">
+                        &gt; <strong>ID:</strong> <code>#AB1234</code><br>
+                        &gt; <strong>Danh mục:</strong> <code id="newCatPrevCatName">Hỗ Trợ</code><br>
+                        &gt; <strong>Tạo lúc:</strong> hôm nay lúc ...<br>
+                        &gt; <strong>Người tạo:</strong> @user<br>
+                        &gt; <strong>Ticket thứ:</strong> <code>#47</code>
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:6px;">
                       <span style="background:#da373c;color:#fff;padding:4px 12px;border-radius:3px;font-size:0.8rem;">🔒 Đóng</span>
                       <span style="background:#4e5058;color:#fff;padding:4px 12px;border-radius:3px;font-size:0.8rem;">👋 Nhận</span>
                     </div>
@@ -1468,6 +1488,8 @@ function updateCatCardPreview(key) {
   if (t) t.textContent = title.replace('{category}', name);
   if (d) d.textContent = msg;
   if (b) { b.textContent = (emoji ? emoji + ' ' : '') + name; b.style.background = COLOR_MAP[color] || '#248046'; }
+  const cn = document.getElementById('ec-prev-catname-' + key);
+  if (cn) cn.textContent = name;
 }
 
 // ── Save existing category card ───────────────────────────
@@ -1526,6 +1548,8 @@ function refreshNewCatPreview() {
   if (t) t.textContent = title.replace('{category}', name);
   if (d) d.textContent = msg;
   if (b) { b.textContent = (emoji ? emoji + ' ' : '🎫 ') + name; b.style.background = COLOR_MAP[color] || '#248046'; }
+  const cn = document.getElementById('newCatPrevCatName');
+  if (cn) cn.textContent = name;
 }
 
 // ── Create new category ───────────────────────────────────

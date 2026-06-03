@@ -580,3 +580,15 @@ Bot Version: 26.1.1-STABLE
 [6/3/2026, 1:24:46 PM] [INTERACTION] categorySelect
 
 [6/3/2026, 1:24:46 PM] [TICKET CREATION] Category: ho-tro, User: heiznerd_2008
+
+[6/3/2026, 1:30:05 PM] [STARTING] Attempting to start the bot..
+NodeJS Version: v22.22.3
+Bot Version: 26.1.1-STABLE
+
+[6/3/2026, 1:30:09 PM] [READY] Bot đã sẵn sàng!
+
+[6/3/2026, 1:34:09 PM] [STARTING] Attempting to start the bot..
+NodeJS Version: v22.22.3
+Bot Version: 26.1.1-STABLE
+
+[6/3/2026, 1:34:12 PM] [READY] Bot đã sẵn sàng!
