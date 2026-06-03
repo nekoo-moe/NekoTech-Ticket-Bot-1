@@ -40,8 +40,7 @@ module.exports = {
         { Name: 'help', Enabled: commands.General.Help.Enabled },
         { Name: 'ping', Enabled: commands.General.Ping.Enabled },
         { Name: 'suggest', Enabled: commands.General.Suggest.Enabled },
-        { Name: 'stats', Enabled: commands.General.Stats.Enabled },
-        { Name: 'staffstats', Enabled: commands.General.Stats.Enabled }
+        { Name: 'stats', Enabled: commands.General.Stats.Enabled }
       ]
     );
 

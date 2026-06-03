@@ -12,17 +12,17 @@ DashboardLogs: true # Enable dashboards logs in the terminal? user logins, actio
 # Note: MAKE SURE TO REPLACE LOCALHOST:3000 WITH THE DOMAIN OR IP YOU ACCESS THE WEB DASHBOARD WITH!
 clientID: "1510255193973985400"
 clientSecret: "T8CxQ58AWUzNgG0xkNONmzAOA2pyqJSn"
-callbackURL: "http://localhost:3000/auth/discord/callback" # Create a Redirect URL in the Developer Portal and set it to the callback URL below
+callbackURL: "http://103.188.83.159:6789/auth/discord/callback" # Create a Redirect URL in the Developer Portal and set it to the callback URL below
 
 # ===========================================================================
 # WEBSERVER
 # You must not leave them as blank!
 # ===========================================================================
-URL: "http://localhost:3000" # URL truy cập dashboard, ví dụ: https://dashboard.heiznerd.tech (KHÔNG có dấu / cuối)
-Port: 3000 # The port you want the webserver to be ran on
+URL: "http://103.188.83.159:6789" # URL truy cập dashboard, ví dụ: https://dashboard.heiznerd.tech (KHÔNG có dấu / cuối)
+Port: 6789 # The port you want the webserver to be ran on
 PublicTranscripts: false # When set to true, anyone can view ticket transcripts without logging in. When false, only ticket creators and support staff can view transcripts.
 
-secretKey: "uNLmkcssG312sY31k8s0mj" # This can be anything, We recommend using this https://www.dashlane.com/features/password-generator with at least 20 characters, ({{TIME}})
+secretKey: "Eqn9K3Hprkl488Rg" # This can be anything, We recommend using this https://www.dashlane.com/features/password-generator with at least 20 characters, ({{TIME}})
 Secure: false # Enable if you are using HTTPS
 trustProxy: false # Enable If your application is behind a reverse proxy (like Cloudflare, Nginx, etc.)
 SessionExpires: "7d" # How long should a session be valid

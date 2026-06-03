@@ -354,6 +354,72 @@ app.get('/statistics', isLoggedIn, async (req, res) => {
   }
 });
 
+function formatResponseTime(milliseconds) {
+  if (!milliseconds) return '0s';
+  const seconds = Math.floor(milliseconds / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours   = Math.floor(minutes / 60);
+  if (hours > 0)   return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
+}
+
+app.get('/staff-stats', isLoggedIn, async (req, res) => {
+  const StaffStats = require('../../db/staffStats');
+  const timeframe = ['weekly', 'monthly', 'yearly', 'lifetime'].includes(req.query.timeframe) ? req.query.timeframe : 'lifetime';
+  const sortBy    = ['claims', 'messages', 'closedTickets', 'responseTime', 'rating'].includes(req.query.sort) ? req.query.sort : 'claims';
+
+  try {
+    const now        = new Date();
+    const weekNumber = StaffStats.getISOWeek(now);
+    const year       = now.getFullYear();
+    const month      = now.getMonth();
+    const lifetime   = timeframe === 'lifetime';
+
+    let rows = StaffStats.findAll().map(s => {
+      const period = timeframe === 'weekly'  ? s.weekly.find(w => w.weekNumber === weekNumber && w.year === year)
+                   : timeframe === 'monthly' ? s.monthly.find(m => m.month === month && m.year === year)
+                   : timeframe === 'yearly'  ? s.yearly.find(y => y.year === year)
+                   : null;
+      return {
+        userID:         s.userID,
+        claims:         lifetime ? s.totalClaims         : (period?.claims        || 0),
+        messages:       lifetime ? s.totalMessages       : (period?.messages      || 0),
+        closedTickets:  lifetime ? s.totalClosedTickets  : (period?.closedTickets || 0),
+        responseTimeMs: lifetime ? s.averageResponseTime : (period?.responseTime  || 0),
+        rating:         lifetime ? (s.averageRating || 0): (period?.averageRating || 0),
+        ratingsCount:   lifetime ? (s.totalRatings  || 0): (period?.ratings       || 0),
+        lastActive:     s.lastActive,
+      };
+    });
+
+    rows.sort((a, b) => {
+      if (sortBy === 'responseTime') {
+        if (!a.responseTimeMs) return 1;
+        if (!b.responseTimeMs) return -1;
+        return a.responseTimeMs - b.responseTimeMs;
+      }
+      return b[sortBy] - a[sortBy];
+    });
+
+    rows = await Promise.all(rows.map(async r => {
+      const info = await getUserInfo(r.userID);
+      return { ...r, username: info.username, avatar: info.avatarURL, responseTime: formatResponseTime(r.responseTimeMs) };
+    }));
+
+    const totals = rows.reduce((a, r) => ({
+      claims:   a.claims   + r.claims,
+      messages: a.messages + r.messages,
+      closed:   a.closed   + r.closedTickets,
+    }), { claims: 0, messages: 0, closed: 0 });
+
+    res.render('staff-stats', { user: req.user, rows, timeframe, sortBy, totals, staffCount: rows.length, accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb });
+  } catch (error) {
+    console.error('Error loading staff stats:', error);
+    res.render('staff-stats', { user: req.user, rows: [], timeframe, sortBy, totals: { claims: 0, messages: 0, closed: 0 }, staffCount: 0, accentColorHex: app.locals.accentColorHex, accentColorRgb: app.locals.accentColorRgb });
+  }
+});
+
 async function getUserInfo(userId) {
   try {
       const discordUser = await client.users.fetch(userId);
@@ -1103,6 +1169,10 @@ app.post('/api/setup/save', isLoggedIn, async (req, res) => {
         if (data.template      !== undefined) setConfig('vietqr.template',      data.template);
         if (data.onlyInTickets !== undefined) setConfig('vietqr.onlyInTickets', data.onlyInTickets);
       },
+      priority: () => {
+        if (data.enabled !== undefined) setConfig('priority.enabled', data.enabled);
+        if (data.levels  !== undefined) setConfig('priority.levels',  data.levels);
+      },
     };
 
     if (setters[section]) {
@@ -1121,7 +1191,7 @@ app.post('/api/setup/save', isLoggedIn, async (req, res) => {
 app.post('/api/setup/category/create', isLoggedIn, async (req, res) => {
   try {
     const Categories = require('../../db/categories');
-    const { key, name, category_channel, support_roles, emoji, description, button_color, logs_channel, channel_name, embed_title, embed_message } = req.body;
+    const { key, name, category_channel, support_roles, emoji, description, button_color, logs_channel, channel_name, embed_title, embed_message, thumbnail_url, image_url, footer_text, footer_icon, dm_enabled, dm_message } = req.body;
 
     if (!key || !name || !category_channel || !support_roles) {
       return res.status(400).json({ error: 'Thiếu thông tin bắt buộc' });
@@ -1142,6 +1212,12 @@ app.post('/api/setup/category/create', isLoggedIn, async (req, res) => {
       parentCategoryID:    category_channel,
       embedTitle:          embed_title || `Ticket ${name} ({category})`,
       embedMessage:        embed_message || '> Cảm ơn bạn đã liên hệ.\n> Vui lòng mô tả vấn đề và chờ nhân viên hỗ trợ.',
+      embedThumbnailURL:   thumbnail_url || '',
+      embedImageURL:       image_url || '',
+      embedFooterText:     footer_text || '',
+      embedFooterIconURL:  footer_icon || '',
+      dmOnClose:           dm_enabled || false,
+      dmCloseMessage:      dm_message || '',
       categoryEmoji:       emoji || '',
       buttonColor:         button_color || 'Green',
       supportRoles,
@@ -1181,7 +1257,7 @@ app.post('/api/setup/category/delete', isLoggedIn, async (req, res) => {
 app.post('/api/setup/category/update', isLoggedIn, async (req, res) => {
   try {
     const Categories = require('../../db/categories');
-    const { key, name, emoji, category_channel, support_roles, logs_channel, channel_name, embed_title, embed_message, button_color, mention_roles } = req.body;
+    const { key, name, emoji, category_channel, support_roles, logs_channel, channel_name, embed_title, embed_message, button_color, mention_roles, thumbnail_url, image_url, footer_text, footer_icon, dm_enabled, dm_message } = req.body;
     if (!key) return res.status(400).json({ error: 'Thiếu key' });
     if (!Categories.findByKey(key)) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
 
@@ -1196,6 +1272,12 @@ app.post('/api/setup/category/update', isLoggedIn, async (req, res) => {
     if (button_color)                updates.buttonColor         = button_color;
     if (mention_roles !== undefined) updates.mentionSupportRoles = mention_roles;
     if (support_roles)               updates.supportRoles        = support_roles.split(',').map(r => r.trim()).filter(Boolean);
+    if (thumbnail_url !== undefined) updates.embedThumbnailURL   = thumbnail_url;
+    if (image_url !== undefined)     updates.embedImageURL       = image_url;
+    if (footer_text !== undefined)   updates.embedFooterText     = footer_text;
+    if (footer_icon !== undefined)   updates.embedFooterIconURL  = footer_icon;
+    if (dm_enabled !== undefined)    updates.dmOnClose           = dm_enabled;
+    if (dm_message !== undefined)    updates.dmCloseMessage      = dm_message;
 
     Categories.update(key, updates);
     res.json({ success: true });
@@ -1208,7 +1290,7 @@ app.post('/api/setup/category/update', isLoggedIn, async (req, res) => {
 // API: Send panel to Discord channel
 app.post('/api/setup/panel/send', isLoggedIn, async (req, res) => {
   try {
-    const { panelId, channelId, title, desc, color, categories: catKeys } = req.body;
+    const { panelId, channelId, title, desc, color, categories: catKeys, useDropdown } = req.body;
     if (!panelId || !channelId || !catKeys || catKeys.length === 0) {
       return res.status(400).json({ error: 'Thiếu thông tin bắt buộc' });
     }
@@ -1231,7 +1313,7 @@ app.post('/api/setup/panel/send', isLoggedIn, async (req, res) => {
     const embed = new EmbedBuilder().setColor(embedColor).setDescription(desc || '> Nhấn vào nút bên dưới để tạo ticket hỗ trợ.');
     if (title) embed.setTitle(title);
 
-    const useSelectMenu = gc('ticket.selectMenu', true);
+    const useSelectMenu = useDropdown !== undefined ? useDropdown : gc('ticket.selectMenu', true);
     const colorMap = { Green: ButtonStyle.Success, Blurple: ButtonStyle.Primary, Gray: ButtonStyle.Secondary, Red: ButtonStyle.Danger };
 
     const cats = catKeys.map(k => Categories.findByKey(k)).filter(Boolean);
@@ -1288,6 +1370,22 @@ app.post('/api/setup/panel/delete', isLoggedIn, async (req, res) => {
   } catch (error) {
     console.error('Error deleting panel:', error);
     res.status(500).json({ error: 'Lỗi xóa panel' });
+  }
+});
+
+// API: Reset all guild config
+app.post('/api/setup/reset-config', isLoggedIn, async (req, res) => {
+  try {
+    const guild = client.guilds.cache.get(req.session.selectedGuildId || config.GuildID);
+    const member = await guild?.members.fetch(req.user.id).catch(() => null);
+    if (!member?.permissions.has('Administrator')) {
+      return res.status(403).json({ error: 'Chỉ Administrator mới có thể reset cấu hình.' });
+    }
+    db.prepare('DELETE FROM guild_config').run();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[reset-config]', err);
+    res.status(500).json({ error: 'Lỗi reset cấu hình' });
   }
 });
 

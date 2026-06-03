@@ -406,6 +406,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 .btn-danger:hover { background: oklch(0.65 0.22 25 / 0.25); }
 
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--ink-2);
+  border-color: var(--border);
+}
+.btn-secondary:hover { background: var(--surface-3); color: var(--ink-1); border-color: var(--teal-border); }
+
 .btn-sm { padding: var(--sp-1) var(--sp-3); font-size: 0.8rem; }
 .btn-lg { padding: var(--sp-3) var(--sp-5); font-size: 1rem; }
 
@@ -700,12 +707,30 @@ input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
     gap: var(--sp-1);
   }
   .nav-section-label, .nav-divider { display: none; }
-  .nav-item { padding: var(--sp-2); font-size: 0.8rem; }
-  .nav-item span:not(.nav-icon) { display: none; }
-  .app-main { grid-column: 1; grid-row: 3; padding: var(--sp-4); }
+  .nav-item { padding: var(--sp-2) var(--sp-3); font-size: 0.8rem; flex-shrink: 0; }
+  .nav-item span:not(.nav-icon):not(.nav-badge) { display: none; }
+  .nav-badge { display: none; }
+  .app-main { grid-column: 1; grid-row: 3; padding: var(--sp-4) var(--sp-3); }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .ticket-row { flex-wrap: wrap; }
+  .ticket-row { flex-wrap: wrap; gap: var(--sp-2); }
+  .ticket-meta { width: 100%; }
   .ticket-actions { width: 100%; justify-content: flex-end; }
+  .page-title { font-size: 1.2rem; }
+  .topbar-username { display: none; }
+  /* Setup wizard mobile */
+  .wizard-layout { grid-template-columns: 1fr !important; }
+  .wizard-nav { position: static !important; flex-direction: row; flex-wrap: wrap; gap: var(--sp-1); margin-bottom: var(--sp-4); }
+  .wizard-nav-item { font-size: 0.75rem; padding: var(--sp-1) var(--sp-2); }
+  .form-grid { grid-template-columns: 1fr !important; }
+  .span-2 { grid-column: span 1 !important; }
+  .save-bar { margin: var(--sp-4) calc(-1 * var(--sp-3)) 0; padding: var(--sp-3); flex-wrap: wrap; }
+  .data-table { font-size: 0.8rem; }
+  .data-table th, .data-table td { padding: var(--sp-2); }
+  /* Staff stats table on mobile */
+  .data-table th:nth-child(5),
+  .data-table td:nth-child(5),
+  .data-table th:nth-child(6),
+  .data-table td:nth-child(6) { display: none; }
 }
 
 /* ── Reduced motion ─────────────────────────────────────── */

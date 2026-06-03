@@ -16,6 +16,7 @@ function parse(row) {
   }
   out.mentionSupportRoles = Boolean(out.mentionSupportRoles);
   out.enabled             = Boolean(out.enabled);
+  out.dmOnClose           = Boolean(out.dmOnClose);
   return out;
 }
 
@@ -26,6 +27,7 @@ function serialize(data) {
   }
   if (out.mentionSupportRoles !== undefined) out.mentionSupportRoles = out.mentionSupportRoles ? 1 : 0;
   if (out.enabled !== undefined)             out.enabled             = out.enabled ? 1 : 0;
+  if (out.dmOnClose !== undefined)           out.dmOnClose           = out.dmOnClose ? 1 : 0;
   return out;
 }
 
@@ -49,11 +51,13 @@ const Categories = {
       INSERT INTO ticket_categories
         (categoryKey, categoryName, description, parentCategoryID, embedTitle, embedMessage,
          categoryEmoji, buttonColor, supportRoles, mentionSupportRoles, channelName,
-         logsChannelID, requiredRoles, questions, sortOrder, enabled)
+         logsChannelID, requiredRoles, questions, sortOrder, enabled,
+         embedThumbnailURL, embedImageURL, embedFooterText, embedFooterIconURL, dmOnClose, dmCloseMessage)
       VALUES
         (@categoryKey, @categoryName, @description, @parentCategoryID, @embedTitle, @embedMessage,
          @categoryEmoji, @buttonColor, @supportRoles, @mentionSupportRoles, @channelName,
-         @logsChannelID, @requiredRoles, @questions, @sortOrder, @enabled)
+         @logsChannelID, @requiredRoles, @questions, @sortOrder, @enabled,
+         @embedThumbnailURL, @embedImageURL, @embedFooterText, @embedFooterIconURL, @dmOnClose, @dmCloseMessage)
     `).run({
       categoryKey:         row.categoryKey,
       categoryName:        row.categoryName,
@@ -71,6 +75,12 @@ const Categories = {
       questions:           row.questions            || '[]',
       sortOrder:           row.sortOrder            || 0,
       enabled:             row.enabled !== undefined ? row.enabled : 1,
+      embedThumbnailURL:   row.embedThumbnailURL    || '',
+      embedImageURL:       row.embedImageURL        || '',
+      embedFooterText:     row.embedFooterText      || '',
+      embedFooterIconURL:  row.embedFooterIconURL   || '',
+      dmOnClose:           row.dmOnClose            || 0,
+      dmCloseMessage:      row.dmCloseMessage       || '',
     });
     return Categories.findByKey(data.categoryKey);
   },

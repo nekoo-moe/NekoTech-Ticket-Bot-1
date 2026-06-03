@@ -78,6 +78,9 @@
     </a>
 
     <span class="nav-section-label">Quản lý</span>
+    <a href="/staff-stats" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'staff-stats' ? 'active' : '' %>">
+      <i class="fas fa-user-shield nav-icon"></i><span>Nhân viên</span>
+    </a>
     <a href="/blacklist" class="nav-item <%= typeof activePage !== 'undefined' && activePage === 'blacklist' ? 'active' : '' %>">
       <i class="fas fa-ban nav-icon"></i><span>Blacklist</span>
     </a>

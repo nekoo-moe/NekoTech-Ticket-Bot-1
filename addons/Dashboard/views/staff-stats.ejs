@@ -1,0 +1,116 @@
+<%
+  pageTitle = 'Nhân viên';
+  activePage = 'staff-stats';
+  const timeframeLabels = { lifetime: 'Toàn thời gian', weekly: 'Tuần này', monthly: 'Tháng này', yearly: 'Năm nay' };
+  const sortLabels = { claims: 'Lần nhận', messages: 'Tin nhắn', closedTickets: 'Ticket đã đóng', responseTime: 'Thời gian phản hồi', rating: 'Đánh giá' };
+%>
+<%- include('partials/shell-open', { user, accentColorHex, accentColorRgb, pageTitle, activePage }) %>
+
+<div class="page-header">
+  <h1 class="page-title">Bảng xếp hạng nhân viên</h1>
+  <p class="page-subtitle">Hiệu suất hỗ trợ của đội ngũ — <strong style="color:var(--ink-1);"><%= timeframeLabels[timeframe] %></strong>, sắp xếp theo <strong style="color:var(--ink-1);"><%= sortLabels[sortBy].toLowerCase() %></strong>.</p>
+</div>
+
+<!-- Summary tiles -->
+<div class="stat-grid" style="margin-bottom:var(--sp-5);">
+  <div class="stat-tile">
+    <div class="stat-tile-icon"><i class="fas fa-user-shield"></i></div>
+    <div class="stat-tile-label">Nhân viên</div>
+    <div class="stat-tile-value"><%= staffCount.toLocaleString('vi-VN') %></div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-tile-icon"><i class="fas fa-user-check"></i></div>
+    <div class="stat-tile-label">Tổng lần nhận</div>
+    <div class="stat-tile-value"><%= totals.claims.toLocaleString('vi-VN') %></div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-tile-icon" style="background:oklch(0.72 0.18 145 / 0.15);color:var(--success);"><i class="fas fa-check-circle"></i></div>
+    <div class="stat-tile-label">Tổng ticket đã đóng</div>
+    <div class="stat-tile-value"><%= totals.closed.toLocaleString('vi-VN') %></div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-tile-icon"><i class="fas fa-envelope"></i></div>
+    <div class="stat-tile-label">Tổng tin nhắn</div>
+    <div class="stat-tile-value"><%= totals.messages.toLocaleString('vi-VN') %></div>
+  </div>
+</div>
+
+<!-- Filters -->
+<form action="/staff-stats" method="GET" class="search-bar">
+  <div class="search-wrap">
+    <select name="timeframe" class="form-select" onchange="this.form.submit()">
+      <% Object.entries(timeframeLabels).forEach(([val, label]) => { %>
+        <option value="<%= val %>" <%= timeframe === val ? 'selected' : '' %>><%= label %></option>
+      <% }); %>
+    </select>
+  </div>
+  <div class="search-wrap">
+    <select name="sort" class="form-select" onchange="this.form.submit()">
+      <% Object.entries(sortLabels).forEach(([val, label]) => { %>
+        <option value="<%= val %>" <%= sortBy === val ? 'selected' : '' %>><%= label %></option>
+      <% }); %>
+    </select>
+  </div>
+  <noscript><button type="submit" class="btn btn-primary">Áp dụng</button></noscript>
+</form>
+
+<!-- Leaderboard -->
+<div class="card">
+  <% if (rows.length > 0) { %>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:48px;">#</th>
+          <th>Nhân viên</th>
+          <th style="text-align:right;">Lần nhận</th>
+          <th style="text-align:right;">Đã đóng</th>
+          <th style="text-align:right;">Tin nhắn</th>
+          <th style="text-align:right;">Phản hồi TB</th>
+          <th style="text-align:right;">Đánh giá</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach((r, i) => {
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+        %>
+        <tr>
+          <td>
+            <% if (medal) { %>
+              <span style="font-size:1.1rem;"><%= medal %></span>
+            <% } else { %>
+              <span style="color:var(--ink-3);font-weight:600;"><%= i + 1 %></span>
+            <% } %>
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:var(--sp-2);">
+              <img src="<%= r.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png' %>" alt="<%= r.username %>"
+                   style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);">
+              <span style="color:var(--ink-1);font-weight:500;"><%= r.username || 'Không rõ' %></span>
+            </div>
+          </td>
+          <td style="text-align:right;"><%= r.claims.toLocaleString('vi-VN') %></td>
+          <td style="text-align:right;"><%= r.closedTickets.toLocaleString('vi-VN') %></td>
+          <td style="text-align:right;"><%= r.messages.toLocaleString('vi-VN') %></td>
+          <td style="text-align:right;"><%= r.responseTime %></td>
+          <td style="text-align:right;">
+            <% if (r.ratingsCount > 0) { %>
+              <span style="color:var(--warning);">★</span> <%= r.rating.toFixed(1) %>
+              <span style="color:var(--ink-3);font-size:0.78rem;">(<%= r.ratingsCount %>)</span>
+            <% } else { %>
+              <span style="color:var(--ink-3);">—</span>
+            <% } %>
+          </td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } else { %>
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fas fa-user-shield"></i></div>
+      <p class="empty-title">Chưa có dữ liệu nhân viên</p>
+      <p class="empty-body">Số liệu sẽ xuất hiện khi nhân viên bắt đầu nhận, phản hồi và đóng ticket.</p>
+    </div>
+  <% } %>
+</div>
+
+<%- include('partials/shell-close') %>

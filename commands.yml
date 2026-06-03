@@ -20,9 +20,6 @@ General:
   Suggest: # Lệnh suggest
     Enabled: true
     Description: "Gửi một đề xuất"
-  StaffStats: # Lệnh staffstats
-    Enabled: true
-    Description: "Xem thống kê và hiệu suất của nhân viên hỗ trợ"
 
 # ===========================================================================
 # LỆNH TICKET
@@ -85,15 +82,12 @@ Utility:
   Invoice: # Lệnh invoice — VietQR
     Enabled: true
     Description: "Gửi hóa đơn thanh toán"
-  AIAnalytics: # Lệnh ai-analytics
-    Enabled: true
-    Description: "Xem thống kê AI AutoResponse"
 
 # ===========================================================================
 # LỆNH QUẢN TRỊ
 # ===========================================================================
 
 Admin:
-  Setup: # Lệnh setup
+  QuickSetup:
     Enabled: true
-    Description: "Cấu hình bot (danh mục, cài đặt ticket, v.v.)"
+    Description: "Thiết lập nhanh bot cho máy chủ (role, kênh, danh mục)"

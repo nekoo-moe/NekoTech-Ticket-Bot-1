@@ -640,44 +640,62 @@ function validateWorkingHours(interaction) {
       
       // Create ticket embed
       const deleteEmbed = new EmbedBuilder();
-      
+
+      const embedColor = categoryConfig.EmbedColor || config.TicketOpenEmbed.EmbedColor || config.EmbedColors;
+      deleteEmbed.setColor(embedColor);
+
+      // Author — avatar + title
       if (config.TicketOpenEmbed.UserIconAuthor) {
-          deleteEmbed.setAuthor({
-              name: `${NewTicketMsgTitle}`,
-              iconURL: `${userIcon}`
-          });
+        deleteEmbed.setAuthor({ name: NewTicketMsgTitle, iconURL: userIcon });
       } else {
-          deleteEmbed.setAuthor({
-              name: `${NewTicketMsgTitle}`
-          });
+        deleteEmbed.setAuthor({ name: NewTicketMsgTitle });
       }
-      
-      if (!config.TicketOpenEmbed.EmbedColor) deleteEmbed.setColor(config.EmbedColors);
-      if (config.TicketOpenEmbed.EmbedColor) deleteEmbed.setColor(config.TicketOpenEmbed.EmbedColor);
-      if (config.TicketOpenEmbed.UserIconThumbnail) deleteEmbed.setThumbnail(userIcon);
-      
+
+      // Description from category config
       deleteEmbed.setDescription(`${NewTicketMsg}`);
-      
+
+      // Structured info fields
+      deleteEmbed.addFields([
+        {
+          name: '`🎫` Thông tin ticket',
+          value: [
+            `> **ID:** \`#${customIdentifier}\``,
+            `> **Danh mục:** \`${categoryConfig.CategoryName}\``,
+            `> **Tạo lúc:** <t:${(Date.now() / 1000 | 0)}:f>`,
+            `> **Người tạo:** <@!${interaction.user.id}>`,
+            `> **Ticket thứ:** \`#${(statsDB?.totalTickets || 0) + 1}\``,
+          ].join('\n'),
+          inline: false,
+        },
+      ]);
+
       if (config.ClaimingSystem?.Enabled) {
-          deleteEmbed.addFields([{
-              name: `${config.Locale.ticketClaimedBy}`,
-              value: `> ${config.Locale.ticketNotClaimed}`
-          }]);
+        deleteEmbed.addFields([{
+          name: `\`👋\` ${config.Locale.ticketClaimedBy}`,
+          value: `> ${config.Locale.ticketNotClaimed}`,
+          inline: false,
+        }]);
       }
-      
-      if (config.TicketOpenEmbed.FooterMsg) {
-          deleteEmbed.setFooter({
-              text: `${config.TicketOpenEmbed.FooterMsg}`
-          });
+
+      // Thumbnail — per-category > user avatar fallback
+      const thumbURL = categoryConfig.EmbedThumbnailURL || categoryConfig.embedThumbnailURL;
+      if (thumbURL) {
+        deleteEmbed.setThumbnail(thumbURL);
+      } else if (config.TicketOpenEmbed.UserIconThumbnail) {
+        deleteEmbed.setThumbnail(userIcon);
       }
-      
-      if (config.TicketOpenEmbed.FooterMsg && config.TicketOpenEmbed.FooterIcon) {
-          deleteEmbed.setFooter({
-              text: `${config.TicketOpenEmbed.FooterMsg}`,
-              iconURL: `${config.TicketOpenEmbed.FooterIcon}`
-          });
+
+      // Banner image
+      const imageURL = categoryConfig.EmbedImageURL || categoryConfig.embedImageURL;
+      if (imageURL) deleteEmbed.setImage(imageURL);
+
+      // Footer — per-category > global config
+      const footerText = categoryConfig.EmbedFooterText || categoryConfig.embedFooterText || config.TicketOpenEmbed.FooterMsg;
+      const footerIcon = categoryConfig.EmbedFooterIconURL || categoryConfig.embedFooterIconURL || config.TicketOpenEmbed.FooterIcon;
+      if (footerText) {
+        deleteEmbed.setFooter({ text: footerText, ...(footerIcon ? { iconURL: footerIcon } : {}) });
       }
-      
+
       if (config.TicketOpenEmbed.Timestamp) deleteEmbed.setTimestamp();
 
       channel.send({

@@ -274,4 +274,15 @@ module.exports = function runMigrations(db) {
       msgCount  INTEGER DEFAULT 0
     );
   `);
+
+  // ── Add new columns if they don't exist (safe ALTER TABLE) ──
+  const addCol = (col, def) => {
+    try { db.prepare(`ALTER TABLE ticket_categories ADD COLUMN ${col} ${def}`).run(); } catch (_) {}
+  };
+  addCol('embedThumbnailURL', "TEXT DEFAULT ''");
+  addCol('embedImageURL',     "TEXT DEFAULT ''");
+  addCol('embedFooterText',   "TEXT DEFAULT ''");
+  addCol('embedFooterIconURL',"TEXT DEFAULT ''");
+  addCol('dmOnClose',         "INTEGER DEFAULT 0");
+  addCol('dmCloseMessage',    "TEXT DEFAULT ''");
 };
